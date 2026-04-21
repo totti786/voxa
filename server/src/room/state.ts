@@ -1,10 +1,15 @@
 import type { PeerInfo } from '../types.js';
+import type { WebRtcTransport, Producer, Consumer } from 'mediasoup/node/lib/types.js';
 
 export interface Peer {
   id: string;
   displayName: string;
   muted: boolean;
   wsId: string; // WebSocket connection identifier
+  sendTransport?: WebRtcTransport;
+  recvTransport?: WebRtcTransport;
+  producer?: Producer;
+  consumers: Map<string, Consumer>;
 }
 
 export interface Room {
@@ -42,6 +47,9 @@ class RoomState {
     const room = this.rooms.get(roomId);
     if (!room) return false;
     if (room.peers.size >= room.maxUsers) return false;
+    if (!peer.consumers) {
+      peer.consumers = new Map();
+    }
     room.peers.set(peer.id, peer);
     return true;
   }

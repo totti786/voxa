@@ -37,6 +37,25 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
     case 'speaking':
       if (typeof msg.speaking !== 'boolean') return null;
       return { type: 'speaking', speaking: msg.speaking };
+    case 'connect_transport':
+      if (
+        typeof msg.transport_id !== 'string' ||
+        typeof msg.dtlsParameters !== 'object'
+      )
+        return null;
+      return {
+        type: 'connect_transport',
+        transport_id: msg.transport_id,
+        dtlsParameters: msg.dtlsParameters,
+      };
+    case 'produce':
+      if (typeof msg.kind !== 'string' || typeof msg.rtpParameters !== 'object')
+        return null;
+      return {
+        type: 'produce',
+        kind: msg.kind,
+        rtpParameters: msg.rtpParameters,
+      };
     case 'leave':
       return { type: 'leave' };
     default:
