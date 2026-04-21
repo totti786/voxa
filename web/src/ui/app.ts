@@ -1,5 +1,7 @@
 import { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
+import { renderParticipants } from './participants.js';
+import { renderControls } from './controls.js';
 
 export function renderApp(container: HTMLElement, app: VoiceApp): void {
   function update(state: AppState) {
@@ -87,4 +89,13 @@ function renderConnected(container: HTMLElement, app: VoiceApp, state: AppState)
   btn.textContent = 'Disconnect';
   btn.onclick = () => app.leave();
   container.appendChild(btn);
+
+  const participants = document.createElement('div');
+  participants.style.cssText = 'width: 320px; max-height: 300px; overflow-y: auto;';
+  renderParticipants(participants, state.peers);
+  container.appendChild(participants);
+
+  const controls = document.createElement('div');
+  renderControls(controls, app, state);
+  container.appendChild(controls);
 }
