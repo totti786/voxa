@@ -57,6 +57,7 @@ export class VoiceApp {
   vadInterval: ReturnType<typeof setInterval> | null = null;
   remoteAudioElements = new Map<string, HTMLAudioElement>();
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
+  private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
 
   constructor(signalingUrl: string) {
     this.store = createAppState();
@@ -224,6 +225,25 @@ export class VoiceApp {
     }
   }
 
+  private consumeRemoteAudio(consumerId: string, producerId: string, peerId: string, kind: string, rtpParameters: unknown): void {
+    if (!this.recvTransport) return;
+    this.recvTransport.consume({
+      id: consumerId,
+      producerId,
+      kind: kind as 'audio',
+      rtpParameters: rtpParameters as RtpParameters,
+    }).then((consumer) => {
+      console.log('[AUDIO] Consumer created, paused=', consumer.paused, 'track=', consumer.track?.kind, 'enabled=', consumer.track?.enabled, 'muted=', consumer.track?.muted);
+      this.consumers.set(consumerId, consumer);
+      consumer.resume();
+      console.log('[AUDIO] Client-side consumer resumed, paused=', consumer.paused);
+      this.signaling.resumeConsumer(consumerId);
+      if (consumer.track) {
+        this.playRemoteAudio(peerId, consumer.track);
+      }
+    }).catch((err) => console.error('[AUDIO] Failed to consume:', err));
+  }
+
   private playRemoteAudio(peerId: string, track: MediaStreamTrack): void {
     console.log('[AUDIO] Playing remote audio for peer', peerId, 'track kind=', track.kind, 'enabled=', track.enabled, 'muted=', track.muted);
     
@@ -282,6 +302,7 @@ export class VoiceApp {
     this.device = null;
     this.remoteAudioElements.forEach((el) => el.remove());
     this.remoteAudioElements.clear();
+    this.pendingConsumers = [];
   }
 
   private async handleServerMessage(msg: ServerMessage): Promise<void> {
@@ -362,6 +383,14 @@ export class VoiceApp {
             this.signaling.connectTransport('recv', dtlsParameters);
             callback();
           });
+          if (this.pendingConsumers.length > 0) {
+            console.log('[AUDIO] Processing', this.pendingConsumers.length, 'pending consumers');
+            const pending = [...this.pendingConsumers];
+            this.pendingConsumers = [];
+            for (const pc of pending) {
+              this.consumeRemoteAudio(pc.consumerId, pc.producerId, pc.peerId, pc.kind, pc.rtpParameters);
+            }
+          }
         }
         if (this.sendTransport && this.localStream) {
           console.log('[AUDIO] sendTransport + localStream ready, producing audio');
@@ -379,29 +408,17 @@ export class VoiceApp {
       case 'consumer_created': {
         console.log('[AUDIO] consumer_created from peer', msg.peerId, 'consumerId=', msg.consumerId);
         if (!this.recvTransport) {
-          console.log('[AUDIO] No recvTransport, cannot consume');
+          console.log('[AUDIO] No recvTransport yet, buffering consumer for later');
+          this.pendingConsumers.push({
+            consumerId: msg.consumerId,
+            producerId: msg.producerId,
+            peerId: msg.peerId,
+            kind: msg.kind,
+            rtpParameters: msg.rtpParameters,
+          });
           return;
         }
-        this.recvTransport.consume({
-          id: msg.consumerId,
-          producerId: msg.producerId,
-          kind: msg.kind as 'audio',
-          rtpParameters: msg.rtpParameters as RtpParameters,
-        }).then((consumer) => {
-          console.log('[AUDIO] Consumer created, paused=', consumer.paused, 'track=', consumer.track?.kind, 'enabled=', consumer.track?.enabled, 'muted=', consumer.track?.muted);
-          this.consumers.set(msg.consumerId, consumer);
-          consumer.resume();
-          console.log('[AUDIO] Client-side consumer resumed, paused=', consumer.paused);
-          this.signaling.resumeConsumer(msg.consumerId);
-          if (consumer.track) {
-            this.playRemoteAudio(msg.peerId, consumer.track);
-            setTimeout(() => {
-              const el = this.remoteAudioElements.get(msg.peerId);
-              console.log('[AUDIO] After 3s - audio element paused=', el?.paused, 'currentTime=', el?.currentTime, 'volume=', el?.volume, 'muted=', el?.muted);
-              console.log('[AUDIO] After 3s - track muted=', consumer.track?.muted, 'readyState=', consumer.track?.readyState);
-            }, 3000);
-          }
-        }).catch((err) => console.error('[AUDIO] Failed to consume:', err));
+        this.consumeRemoteAudio(msg.consumerId, msg.producerId, msg.peerId, msg.kind, msg.rtpParameters);
         break;
       }
       case 'producer_closed': {
