@@ -292,13 +292,18 @@ export class VoiceApp {
         break;
       }
       case 'router_capabilities': {
+        console.log('[AUDIO] router_capabilities received');
         this.device = new Device();
         this.device.load({ routerRtpCapabilities: msg.rtpCapabilities as RtpCapabilities });
         this.signaling.sendRtpCapabilities(this.device.rtpCapabilities);
         break;
       }
       case 'transport_params': {
-        if (!this.device) return;
+        console.log('[AUDIO] transport_params received, direction=', msg.direction);
+        if (!this.device) {
+          console.log('[AUDIO] No device yet, skipping transport_params');
+          return;
+        }
         const params = {
           id: msg.id,
           iceParameters: msg.iceParameters as IceParameters,
@@ -307,6 +312,7 @@ export class VoiceApp {
         };
         if (msg.direction === 'send') {
           this.sendTransport = this.device.createSendTransport(params);
+          console.log('[AUDIO] sendTransport created');
           this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
             this.signaling.connectTransport('send', dtlsParameters);
             callback();
@@ -317,12 +323,14 @@ export class VoiceApp {
           });
         } else {
           this.recvTransport = this.device.createRecvTransport(params);
+          console.log('[AUDIO] recvTransport created');
           this.recvTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
             this.signaling.connectTransport('recv', dtlsParameters);
             callback();
           });
         }
         if (this.sendTransport && this.localStream) {
+          console.log('[AUDIO] sendTransport + localStream ready, producing audio');
           this.produceAudio();
         }
         break;

@@ -30,9 +30,10 @@ export class SignalingClient {
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
+        console.log('[WS] Received:', msg.type);
         this.messageHandlers.forEach((h) => h(msg));
       } catch {
-        console.error('Failed to parse server message');
+        console.error('Failed to parse server message:', String(event.data).slice(0, 200));
       }
     };
 
