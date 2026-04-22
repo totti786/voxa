@@ -171,6 +171,7 @@ export class VoiceApp {
 
   private async setupLocalAudio(): Promise<void> {
     console.log('[AUDIO] Setting up local audio capture...');
+    console.log('[AUDIO] sendTransport exists:', !!this.sendTransport);
     this.localStream = await captureAudio();
     console.log('[AUDIO] Local stream acquired, tracks:', this.localStream.getAudioTracks().length);
     this.audioGraph = createAudioGraph(this.localStream);
@@ -190,6 +191,8 @@ export class VoiceApp {
     if (this.sendTransport) {
       console.log('[AUDIO] sendTransport already exists, producing audio now');
       await this.produceAudio();
+    } else {
+      console.log('[AUDIO] No sendTransport yet, will produce when transport_params arrives');
     }
   }
 
@@ -258,7 +261,7 @@ export class VoiceApp {
     this.remoteAudioElements.clear();
   }
 
-  private handleServerMessage(msg: ServerMessage): void {
+  private async handleServerMessage(msg: ServerMessage): Promise<void> {
     switch (msg.type) {
       case 'joined': {
         this.store.setState({ peers: msg.peers });
@@ -294,7 +297,8 @@ export class VoiceApp {
       case 'router_capabilities': {
         console.log('[AUDIO] router_capabilities received');
         this.device = new Device();
-        this.device.load({ routerRtpCapabilities: msg.rtpCapabilities as RtpCapabilities });
+        await this.device.load({ routerRtpCapabilities: msg.rtpCapabilities as RtpCapabilities });
+        console.log('[AUDIO] Device loaded, sending rtpCapabilities');
         this.signaling.sendRtpCapabilities(this.device.rtpCapabilities);
         break;
       }

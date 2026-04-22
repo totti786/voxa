@@ -27,13 +27,24 @@ export class SignalingClient {
       this.connectHandlers.forEach((h) => h());
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
+      let data: string;
+      if (typeof event.data === 'string') {
+        data = event.data;
+      } else if (event.data instanceof Blob) {
+        console.error('[WS] Received binary Blob, skipping');
+        return;
+      } else {
+        data = String(event.data);
+      }
       try {
-        const msg = JSON.parse(event.data) as ServerMessage;
+        const msg = JSON.parse(data) as ServerMessage;
         console.log('[WS] Received:', msg.type);
-        this.messageHandlers.forEach((h) => h(msg));
-      } catch {
-        console.error('Failed to parse server message:', String(event.data).slice(0, 200));
+        for (const h of this.messageHandlers) {
+          await h(msg);
+        }
+      } catch (err) {
+        console.error('[WS] Error handling message:', err, data.slice(0, 200));
       }
     };
 
