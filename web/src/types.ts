@@ -35,13 +35,39 @@ export interface LeaveMessage extends SignalingMessage {
   type: 'leave';
 }
 
+export interface ConnectTransportMessage extends SignalingMessage {
+  type: 'connect_transport';
+  direction: 'send' | 'recv';
+  dtlsParameters: unknown;
+}
+
+export interface ProduceMessage extends SignalingMessage {
+  type: 'produce';
+  kind: 'audio';
+  rtpParameters: unknown;
+}
+
+export interface ClientRtpCapabilitiesMessage extends SignalingMessage {
+  type: 'client_rtp_capabilities';
+  rtpCapabilities: unknown;
+}
+
+export interface ResumeConsumerMessage extends SignalingMessage {
+  type: 'resume_consumer';
+  consumerId: string;
+}
+
 export type ClientMessage =
   | JoinMessage
   | OfferMessage
   | IceMessage
   | MuteMessage
   | SpeakingMessage
-  | LeaveMessage;
+  | LeaveMessage
+  | ConnectTransportMessage
+  | ProduceMessage
+  | ClientRtpCapabilitiesMessage
+  | ResumeConsumerMessage;
 
 export interface PeerInfo {
   id: string;
@@ -94,6 +120,40 @@ export interface ErrorMessage extends SignalingMessage {
   message: string;
 }
 
+export interface TransportParamsMessage extends SignalingMessage {
+  type: 'transport_params';
+  direction: 'send' | 'recv';
+  id: string;
+  iceParameters: unknown;
+  iceCandidates: unknown[];
+  dtlsParameters: unknown;
+}
+
+export interface RouterCapabilitiesMessage extends SignalingMessage {
+  type: 'router_capabilities';
+  rtpCapabilities: unknown;
+}
+
+export interface ConsumerCreatedMessage extends SignalingMessage {
+  type: 'consumer_created';
+  consumerId: string;
+  producerId: string;
+  peerId: string;
+  kind: string;
+  rtpParameters: unknown;
+}
+
+export interface ProducerCreatedMessage extends SignalingMessage {
+  type: 'producer_created';
+  producerId: string;
+}
+
+export interface ProducerClosedMessage extends SignalingMessage {
+  type: 'producer_closed';
+  producerId: string;
+  peerId: string;
+}
+
 export type ServerMessage =
   | JoinedMessage
   | PeerJoinedMessage
@@ -102,7 +162,12 @@ export type ServerMessage =
   | ServerIceMessage
   | PeerMuteMessage
   | PeerSpeakingMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | TransportParamsMessage
+  | RouterCapabilitiesMessage
+  | ConsumerCreatedMessage
+  | ProducerCreatedMessage
+  | ProducerClosedMessage;
 
 export interface RoomSummary {
   id: string;

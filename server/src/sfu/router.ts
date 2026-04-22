@@ -1,5 +1,5 @@
 import { getWorker, getMediaCodecs } from './worker.js';
-import type { Router } from 'mediasoup/node/lib/types.js';
+import type { Router } from 'mediasoup/types';
 
 const routers = new Map<string, Router>();
 

@@ -1,7 +1,7 @@
 import { getRouter } from './router.js';
 import { createPeerTransports, getTransportIceParams } from './peer.js';
 import { roomState } from '../room/state.js';
-import type { Router, WebRtcTransport, Producer, Consumer } from 'mediasoup/node/lib/types.js';
+import type { Router, WebRtcTransport, Producer, Consumer, RtpCapabilities } from 'mediasoup/types';
 
 export async function setupPeerTransports(
   roomId: string,
@@ -48,10 +48,9 @@ export async function produce(
   const peer = roomState.getPeer(roomId, peerId);
   if (!peer || !peer.sendTransport) return null;
 
-  const producer = await peer.sendTransport.produce({ kind, rtpParameters });
+  const producer = await peer.sendTransport.produce({ kind, rtpParameters, appData: { peerId } });
   peer.producer = producer;
 
-  // Create consumers for all other peers
   const peers = roomState.getPeers(roomId).filter((p) => p.id !== peerId);
   for (const otherPeer of peers) {
     await createConsumer(roomId, otherPeer.id, producer);
@@ -69,14 +68,18 @@ export async function createConsumer(
   const router = getRouter(roomId);
   if (!peer || !peer.recvTransport || !router) return null;
 
-  if (!router.canConsume({ producerId: producer.id, rtpCapabilities: {} })) {
+  const rtpCapabilities = peer.rtpCapabilities;
+  if (!rtpCapabilities) return null;
+
+  if (!router.canConsume({ producerId: producer.id, rtpCapabilities })) {
     return null;
   }
 
   const consumer = await peer.recvTransport.consume({
     producerId: producer.id,
-    rtpCapabilities: {}, // Client capabilities should be passed in real implementation
-    paused: false,
+    rtpCapabilities,
+    paused: true,
+    appData: { producerPeerId: producer.appData.peerId },
   });
 
   peer.consumers.set(consumer.id, consumer);

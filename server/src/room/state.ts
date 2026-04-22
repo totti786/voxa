@@ -1,15 +1,16 @@
 import type { PeerInfo } from '../types.js';
-import type { WebRtcTransport, Producer, Consumer } from 'mediasoup/node/lib/types.js';
+import type { WebRtcTransport, Producer, Consumer, RtpCapabilities } from 'mediasoup/types';
 
 export interface Peer {
   id: string;
   displayName: string;
   muted: boolean;
-  wsId: string; // WebSocket connection identifier
+  wsId: string;
   sendTransport?: WebRtcTransport;
   recvTransport?: WebRtcTransport;
   producer?: Producer;
   consumers: Map<string, Consumer>;
+  rtpCapabilities?: RtpCapabilities;
 }
 
 export interface Room {

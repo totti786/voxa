@@ -1,5 +1,5 @@
 import * as mediasoup from 'mediasoup';
-import type { Worker, RtpCodecCapability } from 'mediasoup/node/lib/types.js';
+import type { Worker, RtpCodecCapability } from 'mediasoup/types';
 
 const mediaCodecs: RtpCodecCapability[] = [
   {
@@ -7,6 +7,7 @@ const mediaCodecs: RtpCodecCapability[] = [
     mimeType: 'audio/opus',
     clockRate: 48000,
     channels: 2,
+    preferredPayloadType: 111,
   },
 ];
 

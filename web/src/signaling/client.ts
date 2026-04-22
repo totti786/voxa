@@ -88,4 +88,20 @@ export class SignalingClient {
   setSpeaking(speaking: boolean): void {
     this.send({ type: 'speaking', speaking });
   }
+
+  connectTransport(direction: 'send' | 'recv', dtlsParameters: unknown): void {
+    this.send({ type: 'connect_transport', direction, dtlsParameters });
+  }
+
+  produce(kind: 'audio', rtpParameters: unknown): void {
+    this.send({ type: 'produce', kind, rtpParameters });
+  }
+
+  sendRtpCapabilities(rtpCapabilities: unknown): void {
+    this.send({ type: 'client_rtp_capabilities', rtpCapabilities });
+  }
+
+  resumeConsumer(consumerId: string): void {
+    this.send({ type: 'resume_consumer', consumerId });
+  }
 }

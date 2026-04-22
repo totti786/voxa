@@ -15,9 +15,11 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
         display_name: msg.display_name,
       };
     case 'offer':
+      if (typeof msg.sdp !== 'string') return null;
+      return { type: 'offer', sdp: msg.sdp };
     case 'answer':
       if (typeof msg.sdp !== 'string') return null;
-      return { type: msg.type, sdp: msg.sdp };
+      return { type: 'answer', sdp: msg.sdp };
     case 'ice':
       if (
         typeof msg.candidate !== 'string' ||
@@ -39,22 +41,43 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
       return { type: 'speaking', speaking: msg.speaking };
     case 'connect_transport':
       if (
-        typeof msg.transport_id !== 'string' ||
-        typeof msg.dtlsParameters !== 'object'
+        (msg.direction !== 'send' && msg.direction !== 'recv') ||
+        typeof msg.dtlsParameters !== 'object' ||
+        msg.dtlsParameters === null
       )
         return null;
       return {
         type: 'connect_transport',
-        transport_id: msg.transport_id,
+        direction: msg.direction,
         dtlsParameters: msg.dtlsParameters,
       };
     case 'produce':
-      if (typeof msg.kind !== 'string' || typeof msg.rtpParameters !== 'object')
+      if (
+        msg.kind !== 'audio' ||
+        typeof msg.rtpParameters !== 'object' ||
+        msg.rtpParameters === null
+      )
         return null;
       return {
         type: 'produce',
         kind: msg.kind,
         rtpParameters: msg.rtpParameters,
+      };
+    case 'client_rtp_capabilities':
+      if (
+        typeof msg.rtpCapabilities !== 'object' ||
+        msg.rtpCapabilities === null
+      )
+        return null;
+      return {
+        type: 'client_rtp_capabilities',
+        rtpCapabilities: msg.rtpCapabilities,
+      };
+    case 'resume_consumer':
+      if (typeof msg.consumerId !== 'string') return null;
+      return {
+        type: 'resume_consumer',
+        consumerId: msg.consumerId,
       };
     case 'leave':
       return { type: 'leave' };

@@ -1,4 +1,4 @@
-import type { Router, WebRtcTransport, Producer, Consumer } from 'mediasoup/node/lib/types.js';
+import type { Router, WebRtcTransport, Producer, Consumer } from 'mediasoup/types';
 
 export interface TransportPair {
   sendTransport: WebRtcTransport;
@@ -24,7 +24,7 @@ export async function createWebRtcTransport(
     preferUdp: true,
   });
 
-  transport.on('icestatechange', (iceState) => {
+  transport.on('icestatechange', (iceState: string) => {
     if (iceState === 'disconnected' || iceState === 'closed' || iceState === 'failed') {
       console.warn(`Transport ${direction} for peer disconnected`);
     }

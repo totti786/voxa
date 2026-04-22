@@ -27,6 +27,7 @@ interface Elements {
 
 interface ConnectedElements {
   orbWrap: HTMLElement;
+  orbRing: HTMLElement;
   orbCanvas: HTMLCanvasElement;
   orbLabel: HTMLElement;
   participants: HTMLElement;
@@ -299,22 +300,18 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   const orbWrap = document.createElement('div');
   orbWrap.className = 'orb-container';
 
-  const orbRing1 = document.createElement('div');
-  orbRing1.className = 'orb-ring';
-  const orbRing2 = document.createElement('div');
-  orbRing2.className = 'orb-ring';
-  const orbRing3 = document.createElement('div');
-  orbRing3.className = 'orb-ring';
+  const ring = document.createElement('div');
+  ring.className = 'orb-ring';
 
   const canvas = document.createElement('canvas');
   canvas.className = 'orb-canvas';
-  canvas.width = 304;
-  canvas.height = 304;
+  canvas.width = 264;
+  canvas.height = 264;
 
   const orbLabel = document.createElement('div');
   orbLabel.className = 'orb-label';
 
-  orbWrap.append(orbRing1, orbRing2, orbRing3, canvas, orbLabel);
+  orbWrap.append(ring, canvas, orbLabel);
   container.appendChild(orbWrap);
 
   const participants = document.createElement('div');
@@ -386,7 +383,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   animId = requestAnimationFrame(draw);
 
   const connected: ConnectedElements = {
-    orbWrap, orbCanvas: canvas, orbLabel, participants, controls,
+    orbWrap, orbRing: ring, orbCanvas: canvas, orbLabel, participants, controls,
     canvasCtx: ctx, animId,
   };
 
