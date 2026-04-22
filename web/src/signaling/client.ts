@@ -1,8 +1,13 @@
 import type { ClientMessage, ServerMessage, PeerInfo } from '../types.js';
 
-export type MessageHandler = (msg: ServerMessage) => void;
+export type MessageHandler = (msg: ServerMessage) => void | Promise<void>;
 export type ConnectHandler = () => void;
 export type DisconnectHandler = () => void;
+
+interface QueuedMessage {
+  data: string;
+  resolve: () => void;
+}
 
 export class SignalingClient {
   private ws: WebSocket | null = null;
@@ -13,6 +18,8 @@ export class SignalingClient {
   private messageHandlers: MessageHandler[] = [];
   private connectHandlers: ConnectHandler[] = [];
   private disconnectHandlers: DisconnectHandler[] = [];
+  private messageQueue: QueuedMessage[] = [];
+  private processingQueue = false;
 
   constructor(url: string) {
     this.url = url;
@@ -27,7 +34,7 @@ export class SignalingClient {
       this.connectHandlers.forEach((h) => h());
     };
 
-    this.ws.onmessage = async (event) => {
+    this.ws.onmessage = (event) => {
       let data: string;
       if (typeof event.data === 'string') {
         data = event.data;
@@ -37,15 +44,7 @@ export class SignalingClient {
       } else {
         data = String(event.data);
       }
-      try {
-        const msg = JSON.parse(data) as ServerMessage;
-        console.log('[WS] Received:', msg.type);
-        for (const h of this.messageHandlers) {
-          await h(msg);
-        }
-      } catch (err) {
-        console.error('[WS] Error handling message:', err, data.slice(0, 200));
-      }
+      this.enqueueMessage(data);
     };
 
     this.ws.onclose = () => {
@@ -59,6 +58,34 @@ export class SignalingClient {
     this.ws.onerror = (err) => {
       console.error('WebSocket error:', err);
     };
+  }
+
+  private enqueueMessage(data: string): void {
+    const promise = new Promise<void>((resolve) => {
+      this.messageQueue.push({ data, resolve });
+    });
+    if (!this.processingQueue) {
+      this.processQueue();
+    }
+    return void promise;
+  }
+
+  private async processQueue(): Promise<void> {
+    this.processingQueue = true;
+    while (this.messageQueue.length > 0) {
+      const item = this.messageQueue.shift()!;
+      try {
+        const msg = JSON.parse(item.data) as ServerMessage;
+        console.log('[WS] Received:', msg.type);
+        for (const h of this.messageHandlers) {
+          await h(msg);
+        }
+      } catch (err) {
+        console.error('[WS] Error handling message:', err, item.data.slice(0, 200));
+      }
+      item.resolve();
+    }
+    this.processingQueue = false;
   }
 
   disconnect(): void {

@@ -172,7 +172,13 @@ export class VoiceApp {
   private async setupLocalAudio(): Promise<void> {
     console.log('[AUDIO] Setting up local audio capture...');
     console.log('[AUDIO] sendTransport exists:', !!this.sendTransport);
-    this.localStream = await captureAudio();
+    try {
+      this.localStream = await captureAudio();
+    } catch (err) {
+      console.error('[AUDIO] Failed to get microphone:', err);
+      alert('Microphone access is required. Please allow microphone access and try again.');
+      return;
+    }
     console.log('[AUDIO] Local stream acquired, tracks:', this.localStream.getAudioTracks().length);
     this.audioGraph = createAudioGraph(this.localStream);
     this.vad = new VADAnalyzer(this.audioGraph.analyzer, {
