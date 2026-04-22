@@ -145,17 +145,25 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
+      console.log('[SERVER] produce from peer', ctx.peerId, 'kind=', msg.kind);
       const producerId = await produce(ctx.roomId, ctx.peerId, msg.kind, msg.rtpParameters as Parameters<import('mediasoup/types').WebRtcTransport['produce']>[0]['rtpParameters']);
       if (!producerId) {
+        console.log('[SERVER] produce failed for peer', ctx.peerId);
         send(ws, { type: 'error', message: 'produce_failed' });
         return;
       }
+      console.log('[SERVER] producer_created', producerId, 'for peer', ctx.peerId);
       send(ws, { type: 'producer_created', producerId });
 
       const peers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId && p.rtpCapabilities);
+      console.log('[SERVER] Creating consumers for', peers.length, 'other peers');
       for (const otherPeer of peers) {
         const consumerInfo = await createConsumer(ctx.roomId, otherPeer.id, roomState.getPeer(ctx.roomId, ctx.peerId)!.producer!);
-        if (!consumerInfo) continue;
+        if (!consumerInfo) {
+          console.log('[SERVER] createConsumer failed for peer', otherPeer.id);
+          continue;
+        }
+        console.log('[SERVER] consumer_created for peer', otherPeer.id, 'consumerId=', consumerInfo.consumerId);
         const otherCtx = findClientByPeerId(otherPeer.id);
         if (!otherCtx) continue;
         send(otherCtx.ws, {
@@ -174,15 +182,21 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
+      console.log('[SERVER] client_rtp_capabilities from peer', ctx.peerId);
       const peer = roomState.getPeer(ctx.roomId, ctx.peerId);
       if (peer) {
         peer.rtpCapabilities = msg.rtpCapabilities as import('mediasoup/types').RtpCapabilities;
       }
 
       const existingPeers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId && p.producer);
+      console.log('[SERVER] Creating consumers for existing', existingPeers.length, 'producers');
       for (const existingPeer of existingPeers) {
         const consumerInfo = await createConsumer(ctx.roomId, ctx.peerId, existingPeer.producer!);
-        if (!consumerInfo) continue;
+        if (!consumerInfo) {
+          console.log('[SERVER] createConsumer failed for existing producer from', existingPeer.id);
+          continue;
+        }
+        console.log('[SERVER] consumer_created for peer', ctx.peerId, 'from existing producer', existingPeer.id);
         send(ws, {
           type: 'consumer_created',
           consumerId: consumerInfo.consumerId,

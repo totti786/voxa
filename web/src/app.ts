@@ -170,7 +170,9 @@ export class VoiceApp {
   }
 
   private async setupLocalAudio(): Promise<void> {
+    console.log('[AUDIO] Setting up local audio capture...');
     this.localStream = await captureAudio();
+    console.log('[AUDIO] Local stream acquired, tracks:', this.localStream.getAudioTracks().length);
     this.audioGraph = createAudioGraph(this.localStream);
     this.vad = new VADAnalyzer(this.audioGraph.analyzer, {
       thresholdDb: this.store.getState().noiseGateThreshold,
@@ -184,28 +186,44 @@ export class VoiceApp {
         this.signaling.setSpeaking(speaking);
       }
     }, 100);
+
+    if (this.sendTransport) {
+      console.log('[AUDIO] sendTransport already exists, producing audio now');
+      await this.produceAudio();
+    }
   }
 
   private async produceAudio(): Promise<void> {
-    if (!this.sendTransport || !this.localStream) return;
+    if (!this.sendTransport || !this.localStream) {
+      console.log('[AUDIO] Cannot produce: sendTransport=', !!this.sendTransport, 'localStream=', !!this.localStream);
+      return;
+    }
     const track = this.localStream.getAudioTracks()[0];
-    if (!track) return;
+    if (!track) {
+      console.log('[AUDIO] No audio track to produce');
+      return;
+    }
+    console.log('[AUDIO] Producing audio track...');
     this.producer = await this.sendTransport.produce({ track });
+    console.log('[AUDIO] Producer created, id=', this.producer.id);
     if (this.store.getState().localMuted) {
       this.producer.pause();
     }
   }
 
   private playRemoteAudio(peerId: string, track: MediaStreamTrack): void {
+    console.log('[AUDIO] Playing remote audio for peer', peerId, 'track kind=', track.kind, 'enabled=', track.enabled);
     let el = this.remoteAudioElements.get(peerId);
     if (!el) {
       el = document.createElement('audio');
       el.autoplay = true;
       el.muted = this.store.getState().deafened;
+      document.body.appendChild(el);
       this.remoteAudioElements.set(peerId, el);
     }
     const stream = new MediaStream([track]);
     el.srcObject = stream;
+    el.play().catch((err) => console.error('[AUDIO] Failed to play remote audio:', err));
   }
 
   private cleanupCall(): void {
@@ -317,18 +335,25 @@ export class VoiceApp {
         break;
       }
       case 'consumer_created': {
-        if (!this.recvTransport) return;
+        console.log('[AUDIO] consumer_created from peer', msg.peerId, 'consumerId=', msg.consumerId);
+        if (!this.recvTransport) {
+          console.log('[AUDIO] No recvTransport, cannot consume');
+          return;
+        }
         this.recvTransport.consume({
           id: msg.consumerId,
           producerId: msg.producerId,
           kind: msg.kind as 'audio',
           rtpParameters: msg.rtpParameters as RtpParameters,
         }).then((consumer) => {
+          console.log('[AUDIO] Consumer created, track=', consumer.track?.kind, 'enabled=', consumer.track?.enabled);
           this.consumers.set(msg.consumerId, consumer);
           consumer.resume();
           this.signaling.resumeConsumer(msg.consumerId);
-          this.playRemoteAudio(msg.peerId, consumer.track);
-        });
+          if (consumer.track) {
+            this.playRemoteAudio(msg.peerId, consumer.track);
+          }
+        }).catch((err) => console.error('[AUDIO] Failed to consume:', err));
         break;
       }
       case 'producer_closed': {

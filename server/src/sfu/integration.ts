@@ -51,11 +51,6 @@ export async function produce(
   const producer = await peer.sendTransport.produce({ kind, rtpParameters, appData: { peerId } });
   peer.producer = producer;
 
-  const peers = roomState.getPeers(roomId).filter((p) => p.id !== peerId);
-  for (const otherPeer of peers) {
-    await createConsumer(roomId, otherPeer.id, producer);
-  }
-
   return producer.id;
 }
 
