@@ -133,10 +133,17 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
-      const ok = await connectTransport(ctx.roomId, ctx.peerId, msg.direction, msg.dtlsParameters as Parameters<import('mediasoup/types').WebRtcTransport['connect']>[0]);
-      if (!ok) {
-        send(ws, { type: 'error', message: 'connect_transport_failed' });
-        return;
+      console.log('[SERVER] connect_transport from peer', ctx.peerId, 'direction=', msg.direction, 'dtls=', typeof msg.dtlsParameters);
+      try {
+        const ok = await connectTransport(ctx.roomId, ctx.peerId, msg.direction, msg.dtlsParameters as Parameters<import('mediasoup/types').WebRtcTransport['connect']>[0]);
+        if (!ok) {
+          send(ws, { type: 'error', message: 'connect_transport_failed' });
+          return;
+        }
+        console.log('[SERVER] connect_transport success for peer', ctx.peerId);
+      } catch (err) {
+        console.error('[SERVER] connect_transport error:', err);
+        send(ws, { type: 'error', message: 'connect_transport_error' });
       }
       break;
     }

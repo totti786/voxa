@@ -43,7 +43,8 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
       if (
         (msg.direction !== 'send' && msg.direction !== 'recv') ||
         typeof msg.dtlsParameters !== 'object' ||
-        msg.dtlsParameters === null
+        msg.dtlsParameters === null ||
+        !Array.isArray((msg.dtlsParameters as Record<string, unknown>).fingerprints)
       )
         return null;
       return {

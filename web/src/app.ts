@@ -213,10 +213,14 @@ export class VoiceApp {
       return;
     }
     console.log('[AUDIO] Producing audio track...');
-    this.producer = await this.sendTransport.produce({ track });
-    console.log('[AUDIO] Producer created, id=', this.producer.id);
-    if (this.store.getState().localMuted) {
-      this.producer.pause();
+    try {
+      this.producer = await this.sendTransport.produce({ track });
+      console.log('[AUDIO] Producer created, id=', this.producer.id);
+      if (this.store.getState().localMuted) {
+        this.producer.pause();
+      }
+    } catch (err) {
+      console.error('[AUDIO] Failed to produce:', err);
     }
   }
 
@@ -324,6 +328,7 @@ export class VoiceApp {
           this.sendTransport = this.device.createSendTransport(params);
           console.log('[AUDIO] sendTransport created');
           this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
+            console.log('[AUDIO] sendTransport connect event, dtlsParameters=', typeof dtlsParameters, 'fingerprints=', Array.isArray(dtlsParameters?.fingerprints));
             this.signaling.connectTransport('send', dtlsParameters);
             callback();
           });
