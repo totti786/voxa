@@ -324,8 +324,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   const ctx = canvas.getContext('2d')!;
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
-  const maxRadius = canvas.width / 2 - 12;
-  const barCount = 64;
+  const maxRadius = canvas.width / 2 - 16;
+  const barCount = 32;
   let animId: number | null = null;
 
   function draw() {
@@ -336,29 +336,31 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const innerRadius = maxRadius * 0.2;
+
     if (data) {
       const step = Math.floor(data.length / barCount);
       for (let i = 0; i < barCount; i++) {
         const value = data[i * step] / 255;
         const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-        const barHeight = value * maxRadius * 0.6;
-        const x1 = centerX + Math.cos(angle) * (maxRadius * 0.35);
-        const y1 = centerY + Math.sin(angle) * (maxRadius * 0.35);
-        const x2 = centerX + Math.cos(angle) * (maxRadius * 0.35 + barHeight);
-        const y2 = centerY + Math.sin(angle) * (maxRadius * 0.35 + barHeight);
+        const barHeight = value * maxRadius * 0.75;
+        const x1 = centerX + Math.cos(angle) * innerRadius;
+        const y1 = centerY + Math.sin(angle) * innerRadius;
+        const x2 = centerX + Math.cos(angle) * (innerRadius + barHeight);
+        const y2 = centerY + Math.sin(angle) * (innerRadius + barHeight);
         const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
         if (isMuted) {
-          gradient.addColorStop(0, 'rgba(255, 107, 107, 0.3)');
-          gradient.addColorStop(1, 'rgba(255, 107, 107, 0.8)');
+          gradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
+          gradient.addColorStop(1, 'rgba(255, 107, 107, 0.7)');
         } else if (isSpeaking) {
-          gradient.addColorStop(0, 'rgba(255, 159, 67, 0.4)');
-          gradient.addColorStop(1, 'rgba(254, 202, 87, 0.9)');
+          gradient.addColorStop(0, 'rgba(255, 159, 67, 0.5)');
+          gradient.addColorStop(1, 'rgba(254, 202, 87, 0.95)');
         } else {
-          gradient.addColorStop(0, 'rgba(138, 127, 117, 0.15)');
-          gradient.addColorStop(1, 'rgba(138, 127, 117, 0.4)');
+          gradient.addColorStop(0, 'rgba(138, 127, 117, 0.1)');
+          gradient.addColorStop(1, 'rgba(138, 127, 117, 0.35)');
         }
         ctx.strokeStyle = gradient;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -369,9 +371,10 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
     if (isSpeaking && !isMuted) {
       const base = data ? data[0] / 255 : 0;
-      const glowRadius = maxRadius * 0.35 + base * 20;
-      const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
-      glow.addColorStop(0, 'rgba(255, 159, 67, 0.15)');
+      const glowRadius = innerRadius + base * 40;
+      const glow = ctx.createRadialGradient(centerX, centerY, innerRadius * 0.5, centerX, centerY, glowRadius);
+      glow.addColorStop(0, 'rgba(255, 159, 67, 0.2)');
+      glow.addColorStop(0.5, 'rgba(255, 159, 67, 0.08)');
       glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);

@@ -14,13 +14,13 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   container.innerHTML = '';
   container.className = 'control-arc';
 
-  const arcRadius = 110;
+  const arcRadius = 100;
   const centerX = 160;
-  const centerY = 80;
+  const centerY = 150;
 
   const micAngle = Math.PI;
-  const deafenAngle = Math.PI * 0.65;
-  const pttAngle = Math.PI * 0.35;
+  const deafenAngle = Math.PI * 0.72;
+  const pttAngle = Math.PI * 0.28;
   const leaveAngle = 0;
 
   const micBtn = createBtn({
@@ -68,7 +68,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   const sliderWrap = document.createElement('div');
   sliderWrap.className = 'control-slider';
   sliderWrap.style.left = `${centerX - 40}px`;
-  sliderWrap.style.top = `${centerY - 40}px`;
+  sliderWrap.style.top = `${centerY - arcRadius + 10}px`;
 
   const gainLabel = document.createElement('span');
   gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;
