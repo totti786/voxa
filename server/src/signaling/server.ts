@@ -148,6 +148,9 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
           return;
         }
         console.log('[SERVER] connect_transport success for peer', ctx.peerId);
+        if (msg.direction === 'recv') {
+          await createConsumersForPeer(ctx.roomId, ctx.peerId);
+        }
       } catch (err) {
         console.error('[SERVER] connect_transport error:', err);
         send(ws, { type: 'error', message: 'connect_transport_error' });
@@ -177,25 +180,9 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         }
       }, 3000);
 
-      const peers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId && p.rtpCapabilities);
-      console.log('[SERVER] Creating consumers for', peers.length, 'other peers');
+      const peers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId);
       for (const otherPeer of peers) {
-        const consumerInfo = await createConsumer(ctx.roomId, otherPeer.id, roomState.getPeer(ctx.roomId, ctx.peerId)!.producer!);
-        if (!consumerInfo) {
-          console.log('[SERVER] createConsumer failed for peer', otherPeer.id);
-          continue;
-        }
-        console.log('[SERVER] consumer_created for peer', otherPeer.id, 'consumerId=', consumerInfo.consumerId);
-        const otherCtx = findClientByPeerId(otherPeer.id);
-        if (!otherCtx) continue;
-        send(otherCtx.ws, {
-          type: 'consumer_created',
-          consumerId: consumerInfo.consumerId,
-          producerId: consumerInfo.producerId,
-          peerId: ctx.peerId,
-          kind: consumerInfo.kind,
-          rtpParameters: consumerInfo.rtpParameters,
-        });
+        await createConsumersForPeer(ctx.roomId, otherPeer.id);
       }
       break;
     }
@@ -209,25 +196,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       if (peer) {
         peer.rtpCapabilities = msg.rtpCapabilities as import('mediasoup/types').RtpCapabilities;
       }
-
-      const existingPeers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId && p.producer);
-      console.log('[SERVER] Creating consumers for existing', existingPeers.length, 'producers');
-      for (const existingPeer of existingPeers) {
-        const consumerInfo = await createConsumer(ctx.roomId, ctx.peerId, existingPeer.producer!);
-        if (!consumerInfo) {
-          console.log('[SERVER] createConsumer failed for existing producer from', existingPeer.id);
-          continue;
-        }
-        console.log('[SERVER] consumer_created for peer', ctx.peerId, 'from existing producer', existingPeer.id);
-        send(ws, {
-          type: 'consumer_created',
-          consumerId: consumerInfo.consumerId,
-          producerId: consumerInfo.producerId,
-          peerId: existingPeer.id,
-          kind: consumerInfo.kind,
-          rtpParameters: consumerInfo.rtpParameters,
-        });
-      }
+      await createConsumersForPeer(ctx.roomId, ctx.peerId);
       break;
     }
     case 'resume_consumer': {
@@ -285,6 +254,27 @@ function handlePeerLeave(roomId: string, peerId: string): void {
   const room = roomState.getRoom(roomId);
   if (room && room.peers.size === 0) {
     import('../sfu/router.js').then(({ closeRouter }) => closeRouter(roomId));
+  }
+}
+
+async function createConsumersForPeer(roomId: string, peerId: string): Promise<void> {
+  const peer = roomState.getPeer(roomId, peerId);
+  if (!peer || !peer.rtpCapabilities || !peer.recvTransport) return;
+
+  const existingPeers = roomState.getPeers(roomId).filter((p) => p.id !== peerId && p.producer);
+  for (const existingPeer of existingPeers) {
+    const consumerInfo = await createConsumer(roomId, peerId, existingPeer.producer!);
+    if (!consumerInfo) continue;
+    const ctx = findClientByPeerId(peerId);
+    if (!ctx) continue;
+    send(ctx.ws, {
+      type: 'consumer_created',
+      consumerId: consumerInfo.consumerId,
+      producerId: consumerInfo.producerId,
+      peerId: existingPeer.id,
+      kind: consumerInfo.kind,
+      rtpParameters: consumerInfo.rtpParameters,
+    });
   }
 }
 
