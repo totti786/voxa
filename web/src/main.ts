@@ -10,6 +10,9 @@ if (container) {
   renderApp(container, app);
 }
 
+app.fetchRooms();
+setInterval(() => app.fetchRooms(), 5000);
+
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.key === 'm' || e.key === 'M') {

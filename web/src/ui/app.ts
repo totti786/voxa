@@ -3,83 +3,104 @@ import type { AppState } from '../app.js';
 import { renderParticipants } from './participants.js';
 import { renderControls } from './controls.js';
 
+type Screen = 'offline' | 'connecting' | 'connected';
+
+interface Elements {
+  headerRoomInfo: HTMLElement;
+  main: HTMLElement;
+  offlineScreen?: HTMLElement;
+  connectingScreen?: HTMLElement;
+  connectedScreen?: ConnectedElements;
+}
+
+interface ConnectedElements {
+  orbWrap: HTMLElement;
+  orbRing: HTMLElement;
+  orbCanvas: HTMLCanvasElement;
+  orbLabel: HTMLElement;
+  participants: HTMLElement;
+  controls: HTMLElement;
+  canvasCtx: CanvasRenderingContext2D;
+  animId: number | null;
+}
+
 export function renderApp(container: HTMLElement, app: VoiceApp): void {
-  let animationId: number | null = null;
+  container.innerHTML = '';
+
+  const ambient = document.createElement('div');
+  ambient.className = 'ambient-glow';
+  container.appendChild(ambient);
+
+  const header = document.createElement('div');
+  header.className = 'header';
+  header.innerHTML = `<h1>Voice</h1>`;
+  const headerRoomInfo = document.createElement('div');
+  headerRoomInfo.className = 'room-info';
+  headerRoomInfo.textContent = 'OFFLINE';
+  header.appendChild(headerRoomInfo);
+  container.appendChild(header);
+
+  const main = document.createElement('div');
+  main.className = 'main';
+  container.appendChild(main);
+
+  const els: Elements = { headerRoomInfo, main };
+  let currentScreen: Screen | null = null;
 
   function update(state: AppState) {
-    if (animationId) {
-      cancelAnimationFrame(animationId);
-      animationId = null;
+    let screen: Screen;
+    if (state.connecting) screen = 'connecting';
+    else if (state.connected) screen = 'connected';
+    else screen = 'offline';
+
+    els.headerRoomInfo.textContent = state.roomId ? state.roomId : 'OFFLINE';
+
+    if (screen !== currentScreen) {
+      currentScreen = screen;
+      clearConnected(els);
+      main.innerHTML = '';
+
+      if (screen === 'offline') {
+        renderOfflineScreen(main, els, app);
+      } else if (screen === 'connecting') {
+        renderConnectingScreen(main, els);
+      } else {
+        renderConnectedScreen(main, els, app);
+      }
     }
 
-    container.innerHTML = '';
-
-    const ambient = document.createElement('div');
-    ambient.className = 'ambient-glow';
-    container.appendChild(ambient);
-
-    const header = document.createElement('div');
-    header.className = 'header';
-    header.innerHTML = `
-      <h1>Voice</h1>
-      <div class="room-info">${state.roomId ? state.roomId : 'OFFLINE'}</div>
-    `;
-    container.appendChild(header);
-
-    const main = document.createElement('div');
-    main.className = 'main';
-
-    if (!state.connected && !state.connecting) {
-      renderJoinForm(main, app, state);
-      app.fetchRooms();
-    } else if (state.connecting) {
-      renderConnecting(main);
-    } else {
-      renderConnected(main, app, state, (id) => { animationId = id; });
+    if (screen === 'connected' && els.connectedScreen) {
+      updateConnected(els.connectedScreen, state, app);
+    } else if (screen === 'offline' && els.offlineScreen) {
+      updateOfflineScreen(els.offlineScreen, state);
     }
-
-    container.appendChild(main);
   }
 
   app.store.subscribe(update);
   update(app.store.getState());
 }
 
-function renderJoinForm(container: HTMLElement, app: VoiceApp, state: AppState): void {
-  const form = document.createElement('div');
-  form.className = 'join-form';
+function clearConnected(els: Elements): void {
+  if (els.connectedScreen?.animId) {
+    cancelAnimationFrame(els.connectedScreen.animId);
+    els.connectedScreen.animId = null;
+  }
+  els.connectedScreen = undefined;
+  els.offlineScreen = undefined;
+  els.connectingScreen = undefined;
+}
 
-  form.innerHTML = `
+function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceApp): void {
+  const wrap = document.createElement('div');
+  wrap.className = 'join-form';
+  wrap.innerHTML = `
     <h2>Join the Conversation</h2>
     <p>Select an active room or create a new one</p>
   `;
 
   const roomGrid = document.createElement('div');
   roomGrid.className = 'room-grid';
-
-  if (state.roomsLoading) {
-    roomGrid.innerHTML = `<div class="room-loading">Loading rooms...</div>`;
-  } else if (state.rooms.length === 0) {
-    roomGrid.innerHTML = `<div class="room-empty">No active rooms yet. Create one below.</div>`;
-  } else {
-    for (const room of state.rooms) {
-      const card = document.createElement('div');
-      card.className = 'room-card';
-      card.dataset.roomId = room.id;
-      card.innerHTML = `
-        <div class="room-card-name">${escapeHtml(room.id)}</div>
-        <div class="room-card-meta">
-          <span>${room.peerCount}/${room.maxUsers} users</span>
-          ${room.hasPassword ? '<span class="room-lock">&#128274;</span>' : ''}
-        </div>
-      `;
-      card.onclick = () => {
-        roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
-        card.classList.add('selected');
-      };
-      roomGrid.appendChild(card);
-    }
-  }
+  wrap.appendChild(roomGrid);
 
   const createCard = document.createElement('div');
   createCard.className = 'room-card create-room';
@@ -87,25 +108,22 @@ function renderJoinForm(container: HTMLElement, app: VoiceApp, state: AppState):
     <div class="room-card-name">+ New Room</div>
     <div class="room-card-meta">Start a fresh conversation</div>
   `;
-  createCard.onclick = () => {
-    roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
-    createCard.classList.add('selected');
-    newRoomInput.style.display = 'block';
-    newRoomInput.focus();
-  };
   roomGrid.appendChild(createCard);
 
   const newRoomInput = document.createElement('input');
   newRoomInput.className = 'new-room-input';
   newRoomInput.placeholder = 'Room name';
   newRoomInput.style.display = 'none';
+  wrap.appendChild(newRoomInput);
 
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'Your name';
+  wrap.appendChild(nameInput);
 
   const passInput = document.createElement('input');
   passInput.type = 'password';
   passInput.placeholder = 'Password (if required)';
+  wrap.appendChild(passInput);
 
   const btn = document.createElement('button');
   btn.className = 'join-btn';
@@ -122,60 +140,111 @@ function renderJoinForm(container: HTMLElement, app: VoiceApp, state: AppState):
     if (!room || !name) return;
     app.join(room, name, passInput.value || undefined);
   };
+  wrap.appendChild(btn);
 
-  form.append(roomGrid, newRoomInput, nameInput, passInput, btn);
-  container.appendChild(form);
+  createCard.onclick = () => {
+    roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
+    createCard.classList.add('selected');
+    newRoomInput.style.display = 'block';
+    newRoomInput.focus();
+  };
+
+  container.appendChild(wrap);
+  els.offlineScreen = wrap;
 }
 
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+function updateOfflineScreen(wrap: HTMLElement, state: AppState): void {
+  let grid = wrap.querySelector('.room-grid') as HTMLElement | null;
+  if (!grid) return;
+
+  const existingIds = new Set<string>();
+  grid.querySelectorAll('.room-card[data-room-id]').forEach((el) => {
+    const id = (el as HTMLElement).dataset.roomId!;
+    existingIds.add(id);
+    const room = state.rooms.find((r) => r.id === id);
+    if (!room) {
+      el.remove();
+    } else {
+      const nameEl = el.querySelector('.room-card-name') as HTMLElement;
+      const metaEl = el.querySelector('.room-card-meta') as HTMLElement;
+      if (nameEl) nameEl.textContent = room.id;
+      if (metaEl) {
+        metaEl.innerHTML = `<span>${room.peerCount}/${room.maxUsers} users</span>${room.hasPassword ? '<span class="room-lock">&#128274;</span>' : ''}`;
+      }
+    }
+  });
+
+  for (const room of state.rooms) {
+    if (existingIds.has(room.id)) continue;
+    const card = document.createElement('div');
+    card.className = 'room-card';
+    card.dataset.roomId = room.id;
+    card.innerHTML = `
+      <div class="room-card-name">${escapeHtml(room.id)}</div>
+      <div class="room-card-meta">
+        <span>${room.peerCount}/${room.maxUsers} users</span>
+        ${room.hasPassword ? '<span class="room-lock">&#128274;</span>' : ''}
+      </div>
+    `;
+    card.onclick = () => {
+      const g = card.parentElement;
+      if (!g) return;
+      g.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
+      card.classList.add('selected');
+    };
+    const createCard = grid.querySelector('.create-room');
+    if (createCard) grid.insertBefore(card, createCard);
+    else grid.appendChild(card);
+  }
+
+  if (state.roomsLoading && state.rooms.length === 0) {
+    if (!grid.querySelector('.room-loading')) {
+      grid.innerHTML = `<div class="room-loading">Loading rooms...</div>`;
+      const createCard2 = document.createElement('div');
+      createCard2.className = 'room-card create-room';
+      createCard2.innerHTML = `<div class="room-card-name">+ New Room</div><div class="room-card-meta">Start a fresh conversation</div>`;
+      grid.appendChild(createCard2);
+      createCard2.onclick = () => {
+        grid!.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
+        createCard2.classList.add('selected');
+        const nri = wrap.querySelector('.new-room-input') as HTMLElement;
+        if (nri) { nri.style.display = 'block'; (nri as HTMLInputElement).focus(); }
+      };
+    }
+  }
 }
 
-function renderConnecting(container: HTMLElement): void {
+function renderConnectingScreen(container: HTMLElement, els: Elements): void {
   const wrap = document.createElement('div');
   wrap.className = 'connecting-state';
-  wrap.innerHTML = `
-    <div class="spinner"></div>
-    <p>Connecting...</p>
-  `;
+  wrap.innerHTML = `<div class="spinner"></div><p>Connecting...</p>`;
   container.appendChild(wrap);
+  els.connectingScreen = wrap;
 }
 
-function renderConnected(
-  container: HTMLElement,
-  app: VoiceApp,
-  state: AppState,
-  setAnimId: (id: number) => void
-): void {
+function renderConnectedScreen(container: HTMLElement, els: Elements, app: VoiceApp): void {
   const orbWrap = document.createElement('div');
-  orbWrap.className = 'orb-container' + (state.localSpeaking ? '' : ' idle');
+  orbWrap.className = 'orb-container';
 
-  const ring = document.createElement('div');
-  ring.className = 'orb-ring' + (state.localMuted ? ' muted' : state.localSpeaking ? ' active' : '');
+  const orbRing = document.createElement('div');
+  orbRing.className = 'orb-ring';
 
   const canvas = document.createElement('canvas');
   canvas.className = 'orb-canvas';
   canvas.width = 264;
   canvas.height = 264;
 
-  const label = document.createElement('div');
-  label.className = 'orb-label';
-  label.textContent = state.localMuted ? 'Muted — Click to unmute' : 'Click to mute';
+  const orbLabel = document.createElement('div');
+  orbLabel.className = 'orb-label';
 
-  orbWrap.append(ring, canvas, label);
+  orbWrap.append(orbRing, canvas, orbLabel);
   container.appendChild(orbWrap);
-
-  orbWrap.onclick = () => app.setMute(!state.localMuted);
 
   const participants = document.createElement('div');
   participants.className = 'participants-ring';
-  renderParticipants(participants, state.peers, app);
   orbWrap.appendChild(participants);
 
   const controls = document.createElement('div');
-  renderControls(controls, app, state);
   container.appendChild(controls);
 
   const ctx = canvas.getContext('2d')!;
@@ -183,55 +252,50 @@ function renderConnected(
   const centerY = canvas.height / 2;
   const maxRadius = canvas.width / 2 - 12;
   const barCount = 64;
+  let animId: number | null = null;
 
   function draw() {
     const data = app.getFrequencyData();
-    const isSpeaking = app.store.getState().localSpeaking;
-    const isMuted = app.store.getState().localMuted;
+    const s = app.store.getState();
+    const isSpeaking = s.localSpeaking;
+    const isMuted = s.localMuted;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!data) {
-      const id = requestAnimationFrame(draw);
-      setAnimId(id);
-      return;
-    }
-
-    const step = Math.floor(data.length / barCount);
-
-    for (let i = 0; i < barCount; i++) {
-      const value = data[i * step] / 255;
-      const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-      const barHeight = value * maxRadius * 0.6;
-
-      const x1 = centerX + Math.cos(angle) * (maxRadius * 0.35);
-      const y1 = centerY + Math.sin(angle) * (maxRadius * 0.35);
-      const x2 = centerX + Math.cos(angle) * (maxRadius * 0.35 + barHeight);
-      const y2 = centerY + Math.sin(angle) * (maxRadius * 0.35 + barHeight);
-
-      const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
-      if (isMuted) {
-        gradient.addColorStop(0, 'rgba(255, 71, 87, 0.3)');
-        gradient.addColorStop(1, 'rgba(255, 71, 87, 0.8)');
-      } else if (isSpeaking) {
-        gradient.addColorStop(0, 'rgba(0, 212, 255, 0.4)');
-        gradient.addColorStop(1, 'rgba(0, 212, 255, 0.9)');
-      } else {
-        gradient.addColorStop(0, 'rgba(0, 212, 255, 0.15)');
-        gradient.addColorStop(1, 'rgba(0, 212, 255, 0.4)');
+    if (data) {
+      const step = Math.floor(data.length / barCount);
+      for (let i = 0; i < barCount; i++) {
+        const value = data[i * step] / 255;
+        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
+        const barHeight = value * maxRadius * 0.6;
+        const x1 = centerX + Math.cos(angle) * (maxRadius * 0.35);
+        const y1 = centerY + Math.sin(angle) * (maxRadius * 0.35);
+        const x2 = centerX + Math.cos(angle) * (maxRadius * 0.35 + barHeight);
+        const y2 = centerY + Math.sin(angle) * (maxRadius * 0.35 + barHeight);
+        const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+        if (isMuted) {
+          gradient.addColorStop(0, 'rgba(255, 71, 87, 0.3)');
+          gradient.addColorStop(1, 'rgba(255, 71, 87, 0.8)');
+        } else if (isSpeaking) {
+          gradient.addColorStop(0, 'rgba(0, 212, 255, 0.4)');
+          gradient.addColorStop(1, 'rgba(0, 212, 255, 0.9)');
+        } else {
+          gradient.addColorStop(0, 'rgba(0, 212, 255, 0.15)');
+          gradient.addColorStop(1, 'rgba(0, 212, 255, 0.4)');
+        }
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
       }
-
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
     }
 
     if (isSpeaking && !isMuted) {
-      const glowRadius = maxRadius * 0.35 + (data[0] / 255) * 20;
+      const base = data ? data[0] / 255 : 0;
+      const glowRadius = maxRadius * 0.35 + base * 20;
       const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
       glow.addColorStop(0, 'rgba(0, 212, 255, 0.15)');
       glow.addColorStop(1, 'rgba(0, 212, 255, 0)');
@@ -239,10 +303,31 @@ function renderConnected(
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    const id = requestAnimationFrame(draw);
-    setAnimId(id);
+    animId = requestAnimationFrame(draw);
   }
 
-  const id = requestAnimationFrame(draw);
-  setAnimId(id);
+  animId = requestAnimationFrame(draw);
+
+  const connected: ConnectedElements = {
+    orbWrap, orbRing, orbCanvas: canvas, orbLabel, participants, controls,
+    canvasCtx: ctx, animId,
+  };
+
+  orbWrap.onclick = () => app.setMute(!app.store.getState().localMuted);
+  els.connectedScreen = connected;
+}
+
+function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp): void {
+  els.orbWrap.className = 'orb-container' + (state.localSpeaking ? '' : ' idle');
+  els.orbRing.className = 'orb-ring' + (state.localMuted ? ' muted' : state.localSpeaking ? ' active' : '');
+  els.orbLabel.textContent = state.localMuted ? 'Muted — Click to unmute' : 'Click to mute';
+
+  renderParticipants(els.participants, state.peers, app);
+  renderControls(els.controls, app, state);
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
