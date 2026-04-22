@@ -3,29 +3,26 @@ import type { AppState } from '../app.js';
 
 export function renderControls(container: HTMLElement, app: VoiceApp, state: AppState): void {
   container.innerHTML = '';
-  container.style.cssText = `
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 20px; background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-  `;
+  container.className = 'control-dock';
 
-  // Mic toggle
   const micBtn = document.createElement('button');
-  micBtn.textContent = state.localMuted ? '🔇 Unmute' : '🎤 Mute';
+  micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
+  micBtn.innerHTML = state.localMuted ? '&#128263;' : '&#127908;';
+  micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
   micBtn.onclick = () => app.setMute(!state.localMuted);
   container.appendChild(micBtn);
 
-  // Deafen toggle
   const deafenBtn = document.createElement('button');
-  deafenBtn.textContent = state.deafened ? '🔇 Undeafen' : '🎧 Deafen';
+  deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
+  deafenBtn.innerHTML = state.deafened ? '&#128263;' : '&#127911;';
+  deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
   deafenBtn.onclick = () => app.setDeafen(!state.deafened);
   container.appendChild(deafenBtn);
 
-  // Input gain slider
+  const gainWrap = document.createElement('div');
+  gainWrap.className = 'control-slider';
   const gainLabel = document.createElement('span');
-  gainLabel.textContent = `Gain: ${Math.round(state.inputGain * 100)}%`;
-  container.appendChild(gainLabel);
-
+  gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;
   const gainSlider = document.createElement('input');
   gainSlider.type = 'range';
   gainSlider.min = '0';
@@ -35,11 +32,20 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
     const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
     app.setInputGain(val);
   };
-  container.appendChild(gainSlider);
+  gainWrap.append(gainLabel, gainSlider);
+  container.appendChild(gainWrap);
 
-  // PTT toggle
   const pttBtn = document.createElement('button');
-  pttBtn.textContent = state.pttEnabled ? 'PTT: ON' : 'PTT: OFF';
+  pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
+  pttBtn.innerHTML = '&#128483;';
+  pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
   pttBtn.onclick = () => app.store.setState({ pttEnabled: !state.pttEnabled });
   container.appendChild(pttBtn);
+
+  const leaveBtn = document.createElement('button');
+  leaveBtn.className = 'control-btn danger';
+  leaveBtn.innerHTML = '&#10060;';
+  leaveBtn.title = 'Disconnect';
+  leaveBtn.onclick = () => app.leave();
+  container.appendChild(leaveBtn);
 }

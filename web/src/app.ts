@@ -125,6 +125,13 @@ export class VoiceApp {
     }
   }
 
+  getFrequencyData(): Uint8Array | null {
+    if (!this.audioGraph) return null;
+    const data = new Uint8Array(this.audioGraph.analyzer.frequencyBinCount);
+    this.audioGraph.analyzer.getByteFrequencyData(data);
+    return data;
+  }
+
   private async setupLocalAudio(): Promise<void> {
     this.localStream = await captureAudio();
     this.audioGraph = createAudioGraph(this.localStream);

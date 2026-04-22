@@ -47,6 +47,7 @@ export interface PeerInfo {
   id: string;
   display_name: string;
   muted: boolean;
+  speaking: boolean;
 }
 
 export interface JoinedMessage extends SignalingMessage {

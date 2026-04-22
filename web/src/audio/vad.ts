@@ -13,7 +13,7 @@ export class VADAnalyzer {
 
   constructor(analyzer: AnalyserNode, options: Partial<VADOptions> = {}) {
     this.analyzer = analyzer;
-    this.dataArray = new Uint8Array(analyzer.frequencyBinCount);
+    this.dataArray = new Uint8Array(new ArrayBuffer(analyzer.frequencyBinCount));
     this.options = {
       thresholdDb: options.thresholdDb ?? -45,
       hysteresisDb: options.hysteresisDb ?? 6,
@@ -22,7 +22,7 @@ export class VADAnalyzer {
   }
 
   analyze(): boolean {
-    this.analyzer.getByteFrequencyData(this.dataArray);
+    (this.analyzer.getByteFrequencyData as (arr: Uint8Array) => void)(this.dataArray);
     const rms = this.computeRMS(this.dataArray);
     const rmsDb = 20 * Math.log10(Math.max(rms, 1e-10));
 
@@ -44,7 +44,7 @@ export class VADAnalyzer {
   }
 
   getVolumeDb(): number {
-    this.analyzer.getByteFrequencyData(this.dataArray);
+    (this.analyzer.getByteFrequencyData as (arr: Uint8Array) => void)(this.dataArray);
     const rms = this.computeRMS(this.dataArray);
     return 20 * Math.log10(Math.max(rms, 1e-10));
   }

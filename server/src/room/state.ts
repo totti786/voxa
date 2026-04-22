@@ -86,6 +86,7 @@ class RoomState {
       id: peer.id,
       display_name: peer.displayName,
       muted: peer.muted,
+      speaking: false,
     };
   }
 

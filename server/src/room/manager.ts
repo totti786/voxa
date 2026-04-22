@@ -4,7 +4,7 @@ import type { Peer } from './state.js';
 export interface JoinResult {
   success: boolean;
   error?: string;
-  peers?: Array<{ id: string; display_name: string; muted: boolean }>;
+  peers?: Array<{ id: string; display_name: string; muted: boolean; speaking: boolean }>;
 }
 
 export function joinRoom(
@@ -29,6 +29,7 @@ export function joinRoom(
     displayName,
     muted: false,
     wsId,
+    consumers: new Map(),
   };
 
   const added = roomState.addPeer(roomId, peer);
