@@ -27,7 +27,7 @@ export async function connectTransport(
   roomId: string,
   peerId: string,
   direction: 'send' | 'recv',
-  dtlsParameters: Parameters<WebRtcTransport['connect']>[0]
+  dtlsParameters: Parameters<WebRtcTransport['connect']>[0]['dtlsParameters']
 ): Promise<boolean> {
   const peer = roomState.getPeer(roomId, peerId);
   if (!peer) return false;
@@ -35,7 +35,7 @@ export async function connectTransport(
   const transport = direction === 'send' ? peer.sendTransport : peer.recvTransport;
   if (!transport) return false;
 
-  await transport.connect(dtlsParameters);
+  await transport.connect({ dtlsParameters });
   return true;
 }
 

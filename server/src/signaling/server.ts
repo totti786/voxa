@@ -133,9 +133,16 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
-      console.log('[SERVER] connect_transport from peer', ctx.peerId, 'direction=', msg.direction, 'dtls=', typeof msg.dtlsParameters);
+      console.log('[SERVER] connect_transport from peer', ctx.peerId, 'direction=', msg.direction);
+      console.log('[SERVER] dtlsParameters keys:', Object.keys(msg.dtlsParameters || {}));
+      console.log('[SERVER] dtlsParameters.fingerprints:', Array.isArray((msg.dtlsParameters as any)?.fingerprints) ? 'array' : 'missing');
+      if ((msg.dtlsParameters as any)?.fingerprints) {
+        console.log('[SERVER] first fingerprint:', JSON.stringify((msg.dtlsParameters as any).fingerprints[0]));
+      }
       try {
-        const ok = await connectTransport(ctx.roomId, ctx.peerId, msg.direction, msg.dtlsParameters as Parameters<import('mediasoup/types').WebRtcTransport['connect']>[0]);
+        const dtlsParams = (msg.dtlsParameters || {}) as Parameters<import('mediasoup/types').WebRtcTransport['connect']>[0]['dtlsParameters'];
+        console.log('[SERVER] About to connect with dtlsParams type:', typeof dtlsParams, 'has fingerprints:', !!dtlsParams?.fingerprints);
+        const ok = await connectTransport(ctx.roomId, ctx.peerId, msg.direction, dtlsParams);
         if (!ok) {
           send(ws, { type: 'error', message: 'connect_transport_failed' });
           return;
