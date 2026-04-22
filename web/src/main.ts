@@ -1,7 +1,8 @@
 import { VoiceApp } from './app.js';
 import { renderApp } from './ui/app.js';
 
-const wsUrl = `wss://${window.location.host}/ws`;
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = `${protocol}//${window.location.host}/ws`;
 const app = new VoiceApp(wsUrl);
 
 const container = document.getElementById('app');

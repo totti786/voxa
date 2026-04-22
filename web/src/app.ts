@@ -68,13 +68,20 @@ export class VoiceApp {
   async join(roomId: string, displayName: string, password?: string): Promise<void> {
     this.store.setState({ connecting: true, roomId, displayName });
     this.signaling.connect();
-    // Wait for websocket connect then join
-    await new Promise<void>((resolve) => {
+    const TIMEOUT_MS = 10000;
+    const POLL_MS = 50;
+    const maxAttempts = TIMEOUT_MS / POLL_MS;
+    await new Promise<void>((resolve, reject) => {
+      let attempts = 0;
       const check = () => {
         if (this.store.getState().connected) {
           resolve();
+        } else if (attempts++ > maxAttempts) {
+          this.signaling.disconnect();
+          this.store.setState({ connecting: false, roomId: null });
+          reject(new Error('Connection timed out'));
         } else {
-          setTimeout(check, 50);
+          setTimeout(check, POLL_MS);
         }
       };
       check();
