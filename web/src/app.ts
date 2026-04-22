@@ -225,18 +225,31 @@ export class VoiceApp {
   }
 
   private playRemoteAudio(peerId: string, track: MediaStreamTrack): void {
-    console.log('[AUDIO] Playing remote audio for peer', peerId, 'track kind=', track.kind, 'enabled=', track.enabled);
+    console.log('[AUDIO] Playing remote audio for peer', peerId, 'track kind=', track.kind, 'enabled=', track.enabled, 'muted=', track.muted);
+    
+    track.onmute = () => console.log('[AUDIO] Track muted for peer', peerId);
+    track.onunmute = () => console.log('[AUDIO] Track unmuted for peer', peerId);
+    track.onended = () => console.log('[AUDIO] Track ended for peer', peerId);
+    
     let el = this.remoteAudioElements.get(peerId);
     if (!el) {
       el = document.createElement('audio');
       el.autoplay = true;
       el.muted = this.store.getState().deafened;
+      el.volume = 1;
+      el.style.position = 'absolute';
+      el.style.opacity = '0';
       document.body.appendChild(el);
       this.remoteAudioElements.set(peerId, el);
     }
     const stream = new MediaStream([track]);
     el.srcObject = stream;
-    el.play().catch((err) => console.error('[AUDIO] Failed to play remote audio:', err));
+    console.log('[AUDIO] Calling play() for peer', peerId, 'element paused=', el.paused, 'muted=', el.muted, 'volume=', el.volume);
+    el.play().then(() => {
+      console.log('[AUDIO] play() succeeded for peer', peerId);
+    }).catch((err) => {
+      console.error('[AUDIO] Failed to play remote audio:', err.name, err.message);
+    });
   }
 
   private cleanupCall(): void {
@@ -327,6 +340,9 @@ export class VoiceApp {
         if (msg.direction === 'send') {
           this.sendTransport = this.device.createSendTransport(params);
           console.log('[AUDIO] sendTransport created');
+          this.sendTransport.on('connectionstatechange', (state: string) => {
+            console.log('[AUDIO] sendTransport connection state:', state);
+          });
           this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
             console.log('[AUDIO] sendTransport connect event, dtlsParameters=', typeof dtlsParameters, 'fingerprints=', Array.isArray(dtlsParameters?.fingerprints));
             this.signaling.connectTransport('send', dtlsParameters);
@@ -339,6 +355,9 @@ export class VoiceApp {
         } else {
           this.recvTransport = this.device.createRecvTransport(params);
           console.log('[AUDIO] recvTransport created');
+          this.recvTransport.on('connectionstatechange', (state: string) => {
+            console.log('[AUDIO] recvTransport connection state:', state);
+          });
           this.recvTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
             this.signaling.connectTransport('recv', dtlsParameters);
             callback();
@@ -369,12 +388,18 @@ export class VoiceApp {
           kind: msg.kind as 'audio',
           rtpParameters: msg.rtpParameters as RtpParameters,
         }).then((consumer) => {
-          console.log('[AUDIO] Consumer created, track=', consumer.track?.kind, 'enabled=', consumer.track?.enabled);
+          console.log('[AUDIO] Consumer created, paused=', consumer.paused, 'track=', consumer.track?.kind, 'enabled=', consumer.track?.enabled, 'muted=', consumer.track?.muted);
           this.consumers.set(msg.consumerId, consumer);
           consumer.resume();
+          console.log('[AUDIO] Client-side consumer resumed, paused=', consumer.paused);
           this.signaling.resumeConsumer(msg.consumerId);
           if (consumer.track) {
             this.playRemoteAudio(msg.peerId, consumer.track);
+            setTimeout(() => {
+              const el = this.remoteAudioElements.get(msg.peerId);
+              console.log('[AUDIO] After 3s - audio element paused=', el?.paused, 'currentTime=', el?.currentTime, 'volume=', el?.volume, 'muted=', el?.muted);
+              console.log('[AUDIO] After 3s - track muted=', consumer.track?.muted, 'readyState=', consumer.track?.readyState);
+            }, 3000);
           }
         }).catch((err) => console.error('[AUDIO] Failed to consume:', err));
         break;

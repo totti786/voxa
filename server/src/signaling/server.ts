@@ -168,6 +168,14 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       }
       console.log('[SERVER] producer_created', producerId, 'for peer', ctx.peerId);
       send(ws, { type: 'producer_created', producerId });
+      
+      setTimeout(async () => {
+        const peer = roomState.getPeer(ctx.roomId!, ctx.peerId);
+        if (peer?.producer) {
+          const stats = await peer.producer.getStats();
+          console.log('[SERVER] Producer stats for', ctx.peerId, ':', Array.from(stats.values()).map((s: any) => ({ type: s.type, bytesSent: s.bytesSent, packetsSent: s.packetsSent })));
+        }
+      }, 3000);
 
       const peers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId && p.rtpCapabilities);
       console.log('[SERVER] Creating consumers for', peers.length, 'other peers');
@@ -231,7 +239,11 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       if (peer && peer.consumers) {
         const consumer = peer.consumers.get(msg.consumerId);
         if (consumer) {
+          console.log('[SERVER] Resuming consumer', msg.consumerId, 'for peer', ctx.peerId);
           await consumer.resume();
+          console.log('[SERVER] Consumer resumed, paused=', consumer.paused);
+        } else {
+          console.log('[SERVER] Consumer not found:', msg.consumerId);
         }
       }
       break;
