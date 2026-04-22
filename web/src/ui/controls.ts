@@ -14,61 +14,52 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   container.innerHTML = '';
   container.className = 'control-arc';
 
-  const arcRadius = 100;
   const centerX = 160;
-  const centerY = 150;
+  const centerY = -30;
+  const radius = 160;
+  const btnSize = 52;
+  const halfBtn = btnSize / 2;
 
-  const micAngle = Math.PI;
-  const deafenAngle = Math.PI * 0.72;
-  const pttAngle = Math.PI * 0.28;
-  const leaveAngle = 0;
+  const positions = [
+    { angle: 145 * Math.PI / 180, key: 'leave' },
+    { angle: 120 * Math.PI / 180, key: 'deafen' },
+    { angle: 90 * Math.PI / 180, key: 'gain' },
+    { angle: 60 * Math.PI / 180, key: 'ptt' },
+    { angle: 35 * Math.PI / 180, key: 'mic' },
+  ];
 
-  const micBtn = createBtn({
-    icon: state.localMuted ? ICONS.micOff : ICONS.mic,
-    title: state.localMuted ? 'Unmute' : 'Mute',
-    active: state.localMuted,
-    danger: state.localMuted,
-    x: centerX + Math.cos(micAngle) * arcRadius - 26,
-    y: centerY - Math.sin(micAngle) * arcRadius - 26,
-    onClick: () => app.setMute(!state.localMuted),
-  });
+  function getPos(angle: number) {
+    return {
+      left: centerX + radius * Math.cos(angle) - halfBtn,
+      top: centerY + radius * Math.sin(angle) - halfBtn,
+    };
+  }
+
+  const micPos = getPos(positions[4].angle);
+  const micBtn = document.createElement('button');
+  micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
+  micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
+  micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
+  micBtn.style.left = `${micPos.left}px`;
+  micBtn.style.top = `${micPos.top}px`;
+  micBtn.onclick = () => app.setMute(!state.localMuted);
   container.appendChild(micBtn);
 
-  const deafenBtn = createBtn({
-    icon: state.deafened ? ICONS.headphonesOff : ICONS.headphones,
-    title: state.deafened ? 'Undeafen' : 'Deafen',
-    active: state.deafened,
-    danger: state.deafened,
-    x: centerX + Math.cos(deafenAngle) * arcRadius - 26,
-    y: centerY - Math.sin(deafenAngle) * arcRadius - 26,
-    onClick: () => app.setDeafen(!state.deafened),
-  });
+  const deafenPos = getPos(positions[1].angle);
+  const deafenBtn = document.createElement('button');
+  deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
+  deafenBtn.innerHTML = state.deafened ? ICONS.headphonesOff : ICONS.headphones;
+  deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
+  deafenBtn.style.left = `${deafenPos.left}px`;
+  deafenBtn.style.top = `${deafenPos.top}px`;
+  deafenBtn.onclick = () => app.setDeafen(!state.deafened);
   container.appendChild(deafenBtn);
 
-  const pttBtn = createBtn({
-    icon: ICONS.ptt,
-    title: state.pttEnabled ? 'PTT On' : 'PTT Off',
-    active: state.pttEnabled,
-    x: centerX + Math.cos(pttAngle) * arcRadius - 26,
-    y: centerY - Math.sin(pttAngle) * arcRadius - 26,
-    onClick: () => app.store.setState({ pttEnabled: !state.pttEnabled }),
-  });
-  container.appendChild(pttBtn);
-
-  const leaveBtn = createBtn({
-    icon: ICONS.leave,
-    title: 'Disconnect',
-    danger: true,
-    x: centerX + Math.cos(leaveAngle) * arcRadius - 26,
-    y: centerY - Math.sin(leaveAngle) * arcRadius - 26,
-    onClick: () => app.leave(),
-  });
-  container.appendChild(leaveBtn);
-
-  const sliderWrap = document.createElement('div');
-  sliderWrap.className = 'control-slider';
-  sliderWrap.style.left = `${centerX - 40}px`;
-  sliderWrap.style.top = `${centerY - arcRadius + 10}px`;
+  const gainPos = getPos(positions[2].angle);
+  const gainWrap = document.createElement('div');
+  gainWrap.className = 'control-slider';
+  gainWrap.style.left = `${gainPos.left - 14}px`;
+  gainWrap.style.top = `${gainPos.top - 10}px`;
 
   const gainLabel = document.createElement('span');
   gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;
@@ -83,29 +74,26 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
     app.setInputGain(val);
   };
 
-  sliderWrap.append(gainLabel, gainSlider);
-  container.appendChild(sliderWrap);
-}
+  gainWrap.append(gainLabel, gainSlider);
+  container.appendChild(gainWrap);
 
-interface BtnOpts {
-  icon: string;
-  title: string;
-  active?: boolean;
-  danger?: boolean;
-  x: number;
-  y: number;
-  onClick: () => void;
-}
+  const pttPos = getPos(positions[3].angle);
+  const pttBtn = document.createElement('button');
+  pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
+  pttBtn.innerHTML = ICONS.ptt;
+  pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
+  pttBtn.style.left = `${pttPos.left}px`;
+  pttBtn.style.top = `${pttPos.top}px`;
+  pttBtn.onclick = () => app.store.setState({ pttEnabled: !state.pttEnabled });
+  container.appendChild(pttBtn);
 
-function createBtn(opts: BtnOpts): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.className = 'control-btn' +
-    (opts.active ? ' active' : '') +
-    (opts.danger && opts.active ? ' danger' : '');
-  btn.innerHTML = opts.icon;
-  btn.title = opts.title;
-  btn.style.left = `${opts.x}px`;
-  btn.style.top = `${opts.y}px`;
-  btn.onclick = opts.onClick;
-  return btn;
+  const leavePos = getPos(positions[0].angle);
+  const leaveBtn = document.createElement('button');
+  leaveBtn.className = 'control-btn danger';
+  leaveBtn.innerHTML = ICONS.leave;
+  leaveBtn.title = 'Disconnect';
+  leaveBtn.style.left = `${leavePos.left}px`;
+  leaveBtn.style.top = `${leavePos.top}px`;
+  leaveBtn.onclick = () => app.leave();
+  container.appendChild(leaveBtn);
 }

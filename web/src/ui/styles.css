@@ -134,7 +134,7 @@ body {
 
 .orb-canvas {
   position: absolute;
-  inset: 8px;
+  inset: 28px;
   border-radius: 50%;
 }
 
