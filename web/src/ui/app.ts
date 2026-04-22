@@ -5,9 +5,21 @@ import { renderControls } from './controls.js';
 
 type Screen = 'offline' | 'connecting' | 'connected';
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+}
+
 interface Elements {
   headerRoomInfo: HTMLElement;
   main: HTMLElement;
+  particleCanvas: HTMLCanvasElement;
+  particleCtx: CanvasRenderingContext2D;
+  particleAnimId: number | null;
   offlineScreen?: HTMLElement;
   connectingScreen?: HTMLElement;
   connectedScreen?: ConnectedElements;
@@ -15,7 +27,6 @@ interface Elements {
 
 interface ConnectedElements {
   orbWrap: HTMLElement;
-  orbRing: HTMLElement;
   orbCanvas: HTMLCanvasElement;
   orbLabel: HTMLElement;
   participants: HTMLElement;
@@ -26,6 +37,13 @@ interface ConnectedElements {
 
 export function renderApp(container: HTMLElement, app: VoiceApp): void {
   container.innerHTML = '';
+
+  const particleCanvas = document.createElement('canvas');
+  particleCanvas.className = 'particle-canvas';
+  particleCanvas.width = window.innerWidth;
+  particleCanvas.height = window.innerHeight;
+  container.appendChild(particleCanvas);
+  const particleCtx = particleCanvas.getContext('2d')!;
 
   const ambient = document.createElement('div');
   ambient.className = 'ambient-glow';
@@ -44,7 +62,16 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
   main.className = 'main';
   container.appendChild(main);
 
-  const els: Elements = { headerRoomInfo, main };
+  const els: Elements = { headerRoomInfo, main, particleCanvas, particleCtx, particleAnimId: null };
+
+  function handleResize() {
+    particleCanvas.width = window.innerWidth;
+    particleCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', handleResize);
+
+  startParticles(els);
+
   let currentScreen: Screen | null = null;
 
   function update(state: AppState) {
@@ -80,6 +107,52 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
   update(app.store.getState());
 }
 
+function createParticles(width: number, height: number): Particle[] {
+  const particles: Particle[] = [];
+  const count = 60;
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      size: Math.random() * 2 + 0.5,
+      opacity: Math.random() * 0.3 + 0.05,
+    });
+  }
+  return particles;
+}
+
+function startParticles(els: Elements): void {
+  if (!els.particleCanvas || !els.particleCtx) return;
+  const particles = createParticles(els.particleCanvas.width, els.particleCanvas.height);
+
+  function draw() {
+    const ctx = els.particleCtx!;
+    const canvas = els.particleCanvas!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < -10) p.x = canvas.width + 10;
+      if (p.x > canvas.width + 10) p.x = -10;
+      if (p.y < -10) p.y = canvas.height + 10;
+      if (p.y > canvas.height + 10) p.y = -10;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 159, 67, ${p.opacity})`;
+      ctx.fill();
+    }
+
+    els.particleAnimId = requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+
 function clearConnected(els: Elements): void {
   if (els.connectedScreen?.animId) {
     cancelAnimationFrame(els.connectedScreen.animId);
@@ -94,8 +167,8 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   const wrap = document.createElement('div');
   wrap.className = 'join-form';
   wrap.innerHTML = `
-    <h2>Join the Conversation</h2>
-    <p>Select an active room or create a new one</p>
+    <div class="hero-title">VOICE</div>
+    <div class="hero-subtitle">Join the conversation</div>
   `;
 
   const roomGrid = document.createElement('div');
@@ -126,8 +199,8 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   wrap.appendChild(passInput);
 
   const btn = document.createElement('button');
-  btn.className = 'join-btn';
-  btn.textContent = 'Join Room';
+  btn.className = 'join-btn pulse-glow';
+  btn.innerHTML = '<span>Join Room</span>';
   btn.onclick = () => {
     const selected = roomGrid.querySelector('.room-card.selected') as HTMLElement | null;
     let room: string | null = null;
@@ -226,18 +299,22 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   const orbWrap = document.createElement('div');
   orbWrap.className = 'orb-container';
 
-  const orbRing = document.createElement('div');
-  orbRing.className = 'orb-ring';
+  const orbRing1 = document.createElement('div');
+  orbRing1.className = 'orb-ring';
+  const orbRing2 = document.createElement('div');
+  orbRing2.className = 'orb-ring';
+  const orbRing3 = document.createElement('div');
+  orbRing3.className = 'orb-ring';
 
   const canvas = document.createElement('canvas');
   canvas.className = 'orb-canvas';
-  canvas.width = 264;
-  canvas.height = 264;
+  canvas.width = 304;
+  canvas.height = 304;
 
   const orbLabel = document.createElement('div');
   orbLabel.className = 'orb-label';
 
-  orbWrap.append(orbRing, canvas, orbLabel);
+  orbWrap.append(orbRing1, orbRing2, orbRing3, canvas, orbLabel);
   container.appendChild(orbWrap);
 
   const participants = document.createElement('div');
@@ -274,14 +351,14 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         const y2 = centerY + Math.sin(angle) * (maxRadius * 0.35 + barHeight);
         const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
         if (isMuted) {
-          gradient.addColorStop(0, 'rgba(255, 71, 87, 0.3)');
-          gradient.addColorStop(1, 'rgba(255, 71, 87, 0.8)');
+          gradient.addColorStop(0, 'rgba(255, 107, 107, 0.3)');
+          gradient.addColorStop(1, 'rgba(255, 107, 107, 0.8)');
         } else if (isSpeaking) {
-          gradient.addColorStop(0, 'rgba(0, 212, 255, 0.4)');
-          gradient.addColorStop(1, 'rgba(0, 212, 255, 0.9)');
+          gradient.addColorStop(0, 'rgba(255, 159, 67, 0.4)');
+          gradient.addColorStop(1, 'rgba(254, 202, 87, 0.9)');
         } else {
-          gradient.addColorStop(0, 'rgba(0, 212, 255, 0.15)');
-          gradient.addColorStop(1, 'rgba(0, 212, 255, 0.4)');
+          gradient.addColorStop(0, 'rgba(138, 127, 117, 0.15)');
+          gradient.addColorStop(1, 'rgba(138, 127, 117, 0.4)');
         }
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 2;
@@ -297,8 +374,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       const base = data ? data[0] / 255 : 0;
       const glowRadius = maxRadius * 0.35 + base * 20;
       const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
-      glow.addColorStop(0, 'rgba(0, 212, 255, 0.15)');
-      glow.addColorStop(1, 'rgba(0, 212, 255, 0)');
+      glow.addColorStop(0, 'rgba(255, 159, 67, 0.15)');
+      glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
@@ -309,7 +386,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   animId = requestAnimationFrame(draw);
 
   const connected: ConnectedElements = {
-    orbWrap, orbRing, orbCanvas: canvas, orbLabel, participants, controls,
+    orbWrap, orbCanvas: canvas, orbLabel, participants, controls,
     canvasCtx: ctx, animId,
   };
 
@@ -319,7 +396,9 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
 function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp): void {
   els.orbWrap.className = 'orb-container' + (state.localSpeaking ? '' : ' idle');
-  els.orbRing.className = 'orb-ring' + (state.localMuted ? ' muted' : state.localSpeaking ? ' active' : '');
+  els.orbWrap.querySelectorAll('.orb-ring').forEach((ring) => {
+    ring.className = 'orb-ring' + (state.localMuted ? ' muted' : state.localSpeaking ? ' active' : '');
+  });
   els.orbLabel.textContent = state.localMuted ? 'Muted — Click to unmute' : 'Click to mute';
 
   renderParticipants(els.participants, state.peers, app);
