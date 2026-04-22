@@ -1,3 +1,4 @@
+import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { validateClientMessage, encodeServerMessage } from './protocol.js';
 import { joinRoom, leaveRoom, setMute } from '../room/manager.js';
@@ -12,8 +13,8 @@ interface ClientContext {
 
 const clients = new Map<WebSocket, ClientContext>();
 
-export function createSignalingServer(port: number): WebSocketServer {
-  const wss = new WebSocketServer({ port });
+export function createSignalingServer(options: { port?: number; server?: http.Server }): WebSocketServer {
+  const wss = new WebSocketServer(options);
 
   wss.on('connection', (ws) => {
     const peerId = generatePeerId();

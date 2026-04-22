@@ -4,7 +4,7 @@ import { createAudioGraph, closeAudioGraph, setInputGain } from './audio/process
 import { VADAnalyzer } from './audio/vad.js';
 import { PeerConnection } from './webrtc/connection.js';
 import { Store } from './state/store.js';
-import type { PeerInfo, ServerMessage } from './types.js';
+import type { PeerInfo, ServerMessage, RoomSummary } from './types.js';
 
 export interface AppState {
   connected: boolean;
@@ -19,6 +19,8 @@ export interface AppState {
   noiseGateThreshold: number;
   pttEnabled: boolean;
   pttActive: boolean;
+  rooms: RoomSummary[];
+  roomsLoading: boolean;
 }
 
 export function createAppState(): Store<AppState> {
@@ -35,6 +37,8 @@ export function createAppState(): Store<AppState> {
     noiseGateThreshold: -45,
     pttEnabled: false,
     pttActive: false,
+    rooms: [],
+    roomsLoading: false,
   });
 }
 
@@ -52,6 +56,19 @@ export class VoiceApp {
     this.store = createAppState();
     this.signaling = new SignalingClient(signalingUrl);
     this.setupSignalingHandlers();
+  }
+
+  async fetchRooms(): Promise<void> {
+    this.store.setState({ roomsLoading: true });
+    try {
+      const res = await fetch('/api/rooms');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const rooms: RoomSummary[] = await res.json();
+      this.store.setState({ rooms, roomsLoading: false });
+    } catch (err) {
+      console.error('Failed to fetch rooms:', err);
+      this.store.setState({ roomsLoading: false });
+    }
   }
 
   private setupSignalingHandlers(): void {

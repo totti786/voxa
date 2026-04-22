@@ -93,6 +93,15 @@ class RoomState {
   getRoomCount(): number {
     return this.rooms.size;
   }
+
+  getRooms(): Array<{ id: string; peerCount: number; hasPassword: boolean; maxUsers: number }> {
+    return Array.from(this.rooms.values()).map((room) => ({
+      id: room.id,
+      peerCount: room.peers.size,
+      hasPassword: !!room.password,
+      maxUsers: room.maxUsers,
+    }));
+  }
 }
 
 export const roomState = new RoomState();

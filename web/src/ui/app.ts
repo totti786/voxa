@@ -30,7 +30,8 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
     main.className = 'main';
 
     if (!state.connected && !state.connecting) {
-      renderJoinForm(main, app);
+      renderJoinForm(main, app, state);
+      app.fetchRooms();
     } else if (state.connecting) {
       renderConnecting(main);
     } else {
@@ -44,38 +45,92 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
   update(app.store.getState());
 }
 
-function renderJoinForm(container: HTMLElement, app: VoiceApp): void {
+function renderJoinForm(container: HTMLElement, app: VoiceApp, state: AppState): void {
   const form = document.createElement('div');
   form.className = 'join-form';
 
   form.innerHTML = `
     <h2>Join the Conversation</h2>
-    <p>Enter a room and your name to get started</p>
+    <p>Select an active room or create a new one</p>
   `;
 
-  const roomInput = document.createElement('input');
-  roomInput.placeholder = 'Room name';
-  roomInput.value = new URLSearchParams(window.location.search).get('room') || '';
+  const roomGrid = document.createElement('div');
+  roomGrid.className = 'room-grid';
+
+  if (state.roomsLoading) {
+    roomGrid.innerHTML = `<div class="room-loading">Loading rooms...</div>`;
+  } else if (state.rooms.length === 0) {
+    roomGrid.innerHTML = `<div class="room-empty">No active rooms yet. Create one below.</div>`;
+  } else {
+    for (const room of state.rooms) {
+      const card = document.createElement('div');
+      card.className = 'room-card';
+      card.dataset.roomId = room.id;
+      card.innerHTML = `
+        <div class="room-card-name">${escapeHtml(room.id)}</div>
+        <div class="room-card-meta">
+          <span>${room.peerCount}/${room.maxUsers} users</span>
+          ${room.hasPassword ? '<span class="room-lock">&#128274;</span>' : ''}
+        </div>
+      `;
+      card.onclick = () => {
+        roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
+        card.classList.add('selected');
+      };
+      roomGrid.appendChild(card);
+    }
+  }
+
+  const createCard = document.createElement('div');
+  createCard.className = 'room-card create-room';
+  createCard.innerHTML = `
+    <div class="room-card-name">+ New Room</div>
+    <div class="room-card-meta">Start a fresh conversation</div>
+  `;
+  createCard.onclick = () => {
+    roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
+    createCard.classList.add('selected');
+    newRoomInput.style.display = 'block';
+    newRoomInput.focus();
+  };
+  roomGrid.appendChild(createCard);
+
+  const newRoomInput = document.createElement('input');
+  newRoomInput.className = 'new-room-input';
+  newRoomInput.placeholder = 'Room name';
+  newRoomInput.style.display = 'none';
 
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'Your name';
 
   const passInput = document.createElement('input');
   passInput.type = 'password';
-  passInput.placeholder = 'Password (optional)';
+  passInput.placeholder = 'Password (if required)';
 
   const btn = document.createElement('button');
   btn.className = 'join-btn';
   btn.textContent = 'Join Room';
   btn.onclick = () => {
-    const room = roomInput.value.trim();
+    const selected = roomGrid.querySelector('.room-card.selected') as HTMLElement | null;
+    let room: string | null = null;
+    if (selected?.dataset.roomId) {
+      room = selected.dataset.roomId;
+    } else if (newRoomInput.value.trim()) {
+      room = newRoomInput.value.trim();
+    }
     const name = nameInput.value.trim();
     if (!room || !name) return;
     app.join(room, name, passInput.value || undefined);
   };
 
-  form.append(roomInput, nameInput, passInput, btn);
+  form.append(roomGrid, newRoomInput, nameInput, passInput, btn);
   container.appendChild(form);
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function renderConnecting(container: HTMLElement): void {

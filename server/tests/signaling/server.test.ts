@@ -7,7 +7,7 @@ describe('signaling server', () => {
   const PORT = 19999;
 
   beforeAll(() => {
-    wss = createSignalingServer(PORT);
+    wss = createSignalingServer({ port: PORT });
   });
 
   afterAll(() => {

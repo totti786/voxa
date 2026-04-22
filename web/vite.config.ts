@@ -13,6 +13,10 @@ export default defineConfig({
         target: 'ws://localhost:7880',
         ws: true,
       },
+      '/api': {
+        target: 'http://localhost:7880',
+        changeOrigin: true,
+      },
     },
   },
   test: {

@@ -103,3 +103,10 @@ export type ServerMessage =
   | PeerMuteMessage
   | PeerSpeakingMessage
   | ErrorMessage;
+
+export interface RoomSummary {
+  id: string;
+  peerCount: number;
+  hasPassword: boolean;
+  maxUsers: number;
+}
