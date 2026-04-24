@@ -4,8 +4,9 @@ import { validateClientMessage, encodeServerMessage } from './protocol.js';
 import { joinRoom, leaveRoom, setMute } from '../room/manager.js';
 import { roomState } from '../room/state.js';
 import { createRouter, getRouter } from '../sfu/router.js';
-import { createPeerTransports, getTransportIceParams } from '../sfu/peer.js';
+import { createPeerTransports } from '../sfu/peer.js';
 import { connectTransport, produce, createConsumer } from '../sfu/integration.js';
+import { loadConfig, buildIceServers } from '../config.js';
 import type { ServerMessage } from '../types.js';
 
 interface ClientContext {
@@ -80,6 +81,8 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'peer_not_found' });
         return;
       }
+      const config = loadConfig();
+      const iceServers = buildIceServers(config);
       peer.sendTransport = transports.sendTransport;
       peer.recvTransport = transports.recvTransport;
 
@@ -90,6 +93,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         iceParameters: transports.sendTransport.iceParameters,
         iceCandidates: transports.sendTransport.iceCandidates,
         dtlsParameters: transports.sendTransport.dtlsParameters,
+        iceServers,
       });
       send(ws, {
         type: 'transport_params',
@@ -98,6 +102,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         iceParameters: transports.recvTransport.iceParameters,
         iceCandidates: transports.recvTransport.iceCandidates,
         dtlsParameters: transports.recvTransport.dtlsParameters,
+        iceServers,
       });
 
       send(ws, {

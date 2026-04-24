@@ -375,6 +375,7 @@ export class VoiceApp {
           iceParameters: msg.iceParameters as IceParameters,
           iceCandidates: msg.iceCandidates as IceCandidate[],
           dtlsParameters: msg.dtlsParameters as DtlsParameters,
+          iceServers: msg.iceServers as RTCIceServer[] | undefined,
         };
         if (msg.direction === 'send') {
           this.sendTransport = this.device.createSendTransport(params);

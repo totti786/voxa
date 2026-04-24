@@ -128,6 +128,11 @@ export interface TransportParamsMessage extends SignalingMessage {
   iceParameters: unknown;
   iceCandidates: unknown[];
   dtlsParameters: unknown;
+  iceServers?: Array<{
+    urls: string | string[];
+    username?: string;
+    credential?: string;
+  }>;
 }
 
 export interface RouterCapabilitiesMessage extends SignalingMessage {

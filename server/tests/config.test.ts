@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadConfig } from '../src/config.js';
+import { loadConfig, buildIceServers } from '../src/config.js';
 
 describe('config', () => {
   it('loads default values', () => {
@@ -22,5 +22,29 @@ describe('config', () => {
     delete process.env.PORT;
     delete process.env.RTC_MIN_PORT;
     delete process.env.RTC_ANNOUNCED_IP;
+  });
+
+  it('builds TURN-aware ice servers when configured', () => {
+    process.env.TURN_ENABLED = 'true';
+    process.env.TURN_SERVER = 'turn.example.com:3478';
+    process.env.TURN_USERNAME = 'voxa';
+    process.env.TURN_CREDENTIAL = 'secret';
+
+    const config = loadConfig();
+    const iceServers = buildIceServers(config);
+
+    expect(iceServers).toEqual([
+      { urls: 'stun:stun.l.google.com:19302' },
+      {
+        urls: ['turn:turn.example.com:3478?transport=udp', 'turn:turn.example.com:3478?transport=tcp'],
+        username: 'voxa',
+        credential: 'secret',
+      },
+    ]);
+
+    delete process.env.TURN_ENABLED;
+    delete process.env.TURN_SERVER;
+    delete process.env.TURN_USERNAME;
+    delete process.env.TURN_CREDENTIAL;
   });
 });

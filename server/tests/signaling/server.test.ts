@@ -3,17 +3,37 @@ import WebSocket from 'ws';
 import { createSignalingServer } from '../../src/signaling/server.js';
 import { createWorker } from '../../src/sfu/worker.js';
 
+const previousEnv = {
+  RTC_MIN_PORT: process.env.RTC_MIN_PORT,
+  RTC_MAX_PORT: process.env.RTC_MAX_PORT,
+  TURN_ENABLED: process.env.TURN_ENABLED,
+  TURN_SERVER: process.env.TURN_SERVER,
+  TURN_USERNAME: process.env.TURN_USERNAME,
+  TURN_CREDENTIAL: process.env.TURN_CREDENTIAL,
+};
+
+const TEST_RTC_MIN_PORT = '25200';
+const TEST_RTC_MAX_PORT = '25300';
+
 describe('signaling server', () => {
   let wss: ReturnType<typeof createSignalingServer>;
   const PORT = 19999;
 
   beforeAll(async () => {
+    process.env.RTC_MIN_PORT = TEST_RTC_MIN_PORT;
+    process.env.RTC_MAX_PORT = TEST_RTC_MAX_PORT;
     await createWorker();
     wss = createSignalingServer({ port: PORT });
   });
 
   afterAll(() => {
     wss.close();
+    process.env.RTC_MIN_PORT = previousEnv.RTC_MIN_PORT;
+    process.env.RTC_MAX_PORT = previousEnv.RTC_MAX_PORT;
+    process.env.TURN_ENABLED = previousEnv.TURN_ENABLED;
+    process.env.TURN_SERVER = previousEnv.TURN_SERVER;
+    process.env.TURN_USERNAME = previousEnv.TURN_USERNAME;
+    process.env.TURN_CREDENTIAL = previousEnv.TURN_CREDENTIAL;
   });
 
   function connect(): Promise<WebSocket> {
@@ -67,6 +87,38 @@ describe('signaling server', () => {
     ws.close();
   }, 15000);
 
+  it('includes ice servers in transport params when TURN is configured', async () => {
+    process.env.TURN_ENABLED = 'true';
+    process.env.TURN_SERVER = 'turn.example.com:3478';
+    process.env.TURN_USERNAME = 'voxa';
+    process.env.TURN_CREDENTIAL = 'secret';
+
+    const ws = await connect();
+    const q = createMessageQueue(ws);
+    ws.send(JSON.stringify({ type: 'join', room: 'turn-room', display_name: 'Alice' }));
+    let msg = await q.next();
+    expect(msg.type).toBe('router_capabilities');
+    msg = await q.next();
+    expect(msg.type).toBe('transport_params');
+    expect(Array.isArray(msg.iceServers)).toBe(true);
+    expect(msg.iceServers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ urls: 'stun:stun.l.google.com:19302' }),
+        expect.objectContaining({
+          urls: ['turn:turn.example.com:3478?transport=udp', 'turn:turn.example.com:3478?transport=tcp'],
+          username: 'voxa',
+          credential: 'secret',
+        }),
+      ])
+    );
+    ws.close();
+
+    delete process.env.TURN_ENABLED;
+    delete process.env.TURN_SERVER;
+    delete process.env.TURN_USERNAME;
+    delete process.env.TURN_CREDENTIAL;
+  }, 15000);
+
   it('rejects invalid json', async () => {
     const ws = await connect();
     const q = createMessageQueue(ws);
@@ -75,7 +127,7 @@ describe('signaling server', () => {
     expect(msg.type).toBe('error');
     expect(msg.message).toBe('invalid_json');
     ws.close();
-  });
+  }, 15000);
 
   it('notifies others when peer joins', async () => {
     const ws1 = await connect();

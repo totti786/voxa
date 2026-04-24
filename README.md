@@ -37,6 +37,10 @@ Set environment variables in `docker-compose.yml` or create a `.env` file:
 | `RTC_MAX_PORT` | 10100 | mediasoup UDP max port |
 | `RTC_ANNOUNCED_IP` | unset | Public IP or hostname announced to remote WebRTC peers |
 | `LOG_LEVEL` | info | Server log level |
+| `TURN_ENABLED` | false | Enable TURN ICE server injection |
+| `TURN_SERVER` | unset | TURN server URL or host:port |
+| `TURN_USERNAME` | unset | TURN long-term credential username |
+| `TURN_CREDENTIAL` | unset | TURN long-term credential password |
 
 ## TLS
 

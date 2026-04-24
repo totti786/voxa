@@ -127,6 +127,7 @@ export interface TransportParamsMessage extends SignalingMessage {
   iceParameters: unknown;
   iceCandidates: unknown[];
   dtlsParameters: unknown;
+  iceServers?: RTCIceServer[];
 }
 
 export interface RouterCapabilitiesMessage extends SignalingMessage {
