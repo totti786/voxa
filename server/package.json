@@ -1,5 +1,5 @@
 {
-  "name": "voice-server",
+  "name": "voxa-server",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "mediasoup": "^3.14.0",
+    "mediasoup": "^3.19.21",
     "ws": "^8.16.0"
   },
   "devDependencies": {

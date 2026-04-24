@@ -148,6 +148,17 @@ export interface ProducerCreatedMessage extends SignalingMessage {
   producerId: string;
 }
 
+export interface TransportConnectedMessage extends SignalingMessage {
+  type: 'transport_connected';
+  direction: 'send' | 'recv';
+}
+
+export interface TransportFailedMessage extends SignalingMessage {
+  type: 'transport_failed';
+  direction: 'send' | 'recv';
+  message: string;
+}
+
 export interface ProducerClosedMessage extends SignalingMessage {
   type: 'producer_closed';
   producerId: string;
@@ -167,6 +178,8 @@ export type ServerMessage =
   | RouterCapabilitiesMessage
   | ConsumerCreatedMessage
   | ProducerCreatedMessage
+  | TransportConnectedMessage
+  | TransportFailedMessage
   | ProducerClosedMessage;
 
 export interface RoomSummary {

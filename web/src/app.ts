@@ -58,6 +58,7 @@ export class VoiceApp {
   remoteAudioElements = new Map<string, HTMLAudioElement>();
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
   private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
+  private pendingTransportConnect: Partial<Record<'send' | 'recv', { callback: () => void; errback: (error: Error) => void }>> = {};
 
   constructor(signalingUrl: string) {
     this.store = createAppState();
@@ -182,9 +183,23 @@ export class VoiceApp {
     }
     console.log('[AUDIO] Local stream acquired, tracks:', this.localStream.getAudioTracks().length);
     this.audioGraph = createAudioGraph(this.localStream);
-    this.vad = new VADAnalyzer(this.audioGraph.analyzer, {
-      thresholdDb: this.store.getState().noiseGateThreshold,
-    });
+    try {
+      if (this.audioGraph.context.state !== 'running') {
+        await this.audioGraph.context.resume();
+      }
+    } catch (err) {
+      console.error('[AUDIO] Failed to start audio processing graph, falling back to raw track:', err);
+      closeAudioGraph(this.audioGraph);
+      this.audioGraph = null;
+    }
+
+    if (this.audioGraph) {
+      this.vad = new VADAnalyzer(this.audioGraph.analyzer, {
+        thresholdDb: this.store.getState().noiseGateThreshold,
+      });
+    } else {
+      this.vad = null;
+    }
 
     this.vadInterval = setInterval(() => {
       if (!this.vad || this.store.getState().localMuted) return;
@@ -208,7 +223,9 @@ export class VoiceApp {
       console.log('[AUDIO] Cannot produce: sendTransport=', !!this.sendTransport, 'localStream=', !!this.localStream);
       return;
     }
-    const track = this.localStream.getAudioTracks()[0];
+    const track =
+      this.audioGraph?.outputStream.getAudioTracks()[0] ??
+      this.localStream.getAudioTracks()[0];
     if (!track) {
       console.log('[AUDIO] No audio track to produce');
       return;
@@ -303,6 +320,7 @@ export class VoiceApp {
     this.remoteAudioElements.forEach((el) => el.remove());
     this.remoteAudioElements.clear();
     this.pendingConsumers = [];
+    this.pendingTransportConnect = {};
   }
 
   private async handleServerMessage(msg: ServerMessage): Promise<void> {
@@ -364,10 +382,10 @@ export class VoiceApp {
           this.sendTransport.on('connectionstatechange', (state: string) => {
             console.log('[AUDIO] sendTransport connection state:', state);
           });
-          this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
+          this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
             console.log('[AUDIO] sendTransport connect event, dtlsParameters=', typeof dtlsParameters, 'fingerprints=', Array.isArray(dtlsParameters?.fingerprints));
+            this.pendingTransportConnect.send = { callback, errback };
             this.signaling.connectTransport('send', dtlsParameters);
-            callback();
           });
           this.sendTransport.on('produce', ({ kind, rtpParameters }: { kind: MediaKind; rtpParameters: RtpParameters }, callback: (data: { id: string }) => void) => {
             this.signaling.produce(kind as 'audio', rtpParameters);
@@ -379,9 +397,9 @@ export class VoiceApp {
           this.recvTransport.on('connectionstatechange', (state: string) => {
             console.log('[AUDIO] recvTransport connection state:', state);
           });
-          this.recvTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void) => {
+          this.recvTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
+            this.pendingTransportConnect.recv = { callback, errback };
             this.signaling.connectTransport('recv', dtlsParameters);
-            callback();
           });
           if (this.pendingConsumers.length > 0) {
             console.log('[AUDIO] Processing', this.pendingConsumers.length, 'pending consumers');
@@ -403,6 +421,23 @@ export class VoiceApp {
         if (callback) {
           callback({ id: msg.producerId });
         }
+        break;
+      }
+      case 'transport_connected': {
+        const pending = this.pendingTransportConnect[msg.direction];
+        if (pending) {
+          pending.callback();
+          delete this.pendingTransportConnect[msg.direction];
+        }
+        break;
+      }
+      case 'transport_failed': {
+        const pending = this.pendingTransportConnect[msg.direction];
+        if (pending) {
+          pending.errback(new Error(msg.message));
+          delete this.pendingTransportConnect[msg.direction];
+        }
+        console.error('Transport setup failed:', msg.direction, msg.message);
         break;
       }
       case 'consumer_created': {

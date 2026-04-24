@@ -52,7 +52,7 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
 
   const header = document.createElement('div');
   header.className = 'header';
-  header.innerHTML = `<h1>Voice</h1>`;
+  header.innerHTML = `<h1>Voxa</h1>`;
   const headerRoomInfo = document.createElement('div');
   headerRoomInfo.className = 'room-info';
   headerRoomInfo.textContent = 'OFFLINE';
@@ -168,7 +168,7 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   const wrap = document.createElement('div');
   wrap.className = 'join-form';
   wrap.innerHTML = `
-    <div class="hero-title">VOICE</div>
+    <div class="hero-title">VOXA</div>
     <div class="hero-subtitle">Join the conversation</div>
   `;
 

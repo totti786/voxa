@@ -1,23 +1,15 @@
-# Voice
+# Voxa
 
 Web-first, self-hosted, low-latency voice communication.
 
 ## Quick Start
 
-1. Build the frontend:
+1. Build and run with Docker Compose:
 ```bash
-cd web
-npm install
-npm run build
-```
-
-2. Build and run with Docker Compose:
-```bash
-cd ..
 docker-compose up --build
 ```
 
-3. Open `http://localhost` in your browser.
+2. Open `http://localhost` in your browser.
 
 ## Development
 
@@ -43,8 +35,9 @@ Set environment variables in `docker-compose.yml` or create a `.env` file:
 | `PORT` | 7880 | Signaling server port |
 | `RTC_MIN_PORT` | 10000 | mediasoup UDP min port |
 | `RTC_MAX_PORT` | 10100 | mediasoup UDP max port |
+| `RTC_ANNOUNCED_IP` | unset | Public IP or hostname announced to remote WebRTC peers |
 | `LOG_LEVEL` | info | Server log level |
 
 ## TLS
 
-For production, place an SSL-terminating reverse proxy (Caddy, Nginx, Traefik) in front of the `voice-web` service. WebRTC requires HTTPS for microphone access.
+For production, place an SSL-terminating reverse proxy (Caddy, Nginx, Traefik) in front of the `voxa-web` service. WebRTC requires HTTPS for microphone access.

@@ -35,4 +35,27 @@ describe('VoiceApp integration', () => {
     app.setDeafen(false);
     expect(app.store.getState().deafened).toBe(false);
   });
+
+  it('produces the processed audio track when an audio graph is available', async () => {
+    const app = new VoiceApp('ws://test/ws');
+    const rawTrack = { id: 'raw-track' } as MediaStreamTrack;
+    const processedTrack = { id: 'processed-track' } as MediaStreamTrack;
+    const produce = vi.fn().mockResolvedValue({ id: 'producer-1' });
+
+    app.localStream = {
+      getAudioTracks: () => [rawTrack],
+    } as unknown as MediaStream;
+    app.audioGraph = {
+      outputStream: {
+        getAudioTracks: () => [processedTrack],
+      },
+    } as unknown as ReturnType<typeof import('../../src/audio/processing.js').createAudioGraph>;
+    app.sendTransport = {
+      produce,
+    } as unknown as typeof app.sendTransport;
+
+    await (app as any).produceAudio();
+
+    expect(produce).toHaveBeenCalledWith({ track: processedTrack });
+  });
 });

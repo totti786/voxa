@@ -144,16 +144,17 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         console.log('[SERVER] About to connect with dtlsParams type:', typeof dtlsParams, 'has fingerprints:', !!dtlsParams?.fingerprints);
         const ok = await connectTransport(ctx.roomId, ctx.peerId, msg.direction, dtlsParams);
         if (!ok) {
-          send(ws, { type: 'error', message: 'connect_transport_failed' });
+          send(ws, { type: 'transport_failed', direction: msg.direction, message: 'connect_transport_failed' });
           return;
         }
         console.log('[SERVER] connect_transport success for peer', ctx.peerId);
+        send(ws, { type: 'transport_connected', direction: msg.direction });
         if (msg.direction === 'recv') {
           await createConsumersForPeer(ctx.roomId, ctx.peerId);
         }
       } catch (err) {
         console.error('[SERVER] connect_transport error:', err);
-        send(ws, { type: 'error', message: 'connect_transport_error' });
+        send(ws, { type: 'transport_failed', direction: msg.direction, message: 'connect_transport_error' });
       }
       break;
     }

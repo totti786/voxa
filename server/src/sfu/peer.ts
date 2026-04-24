@@ -1,4 +1,5 @@
 import type { Router, WebRtcTransport, Producer, Consumer } from 'mediasoup/types';
+import { loadConfig } from '../config.js';
 
 export interface TransportPair {
   sendTransport: WebRtcTransport;
@@ -17,8 +18,9 @@ export async function createWebRtcTransport(
   router: Router,
   direction: 'send' | 'recv'
 ): Promise<WebRtcTransport> {
+  const config = loadConfig();
   const transport = await router.createWebRtcTransport({
-    listenIps: [{ ip: '0.0.0.0', announcedIp: undefined }],
+    listenIps: [{ ip: '0.0.0.0', announcedIp: config.rtcAnnouncedIp }],
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,
