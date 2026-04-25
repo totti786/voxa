@@ -97,4 +97,30 @@ describe('VoiceApp integration', () => {
 
     expect(produce).toHaveBeenCalledWith({ track: processedTrack });
   });
+
+  it('forces relay ICE policy when creating mediasoup transports', async () => {
+    const app = new VoiceApp('ws://test/ws');
+    const createSendTransport = vi.fn().mockReturnValue({
+      on: vi.fn(),
+    });
+    app.device = {
+      createSendTransport,
+      createRecvTransport: vi.fn(),
+      rtpCapabilities: {},
+    } as any;
+
+    await (app as any).handleServerMessage({
+      type: 'transport_params',
+      direction: 'send',
+      id: 'transport-1',
+      iceParameters: {},
+      iceCandidates: [],
+      dtlsParameters: {},
+      iceServers: [],
+    });
+
+    expect(createSendTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ iceTransportPolicy: 'relay' })
+    );
+  });
 });

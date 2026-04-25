@@ -470,6 +470,7 @@ export class VoiceApp {
           iceCandidates: msg.iceCandidates as IceCandidate[],
           dtlsParameters: msg.dtlsParameters as DtlsParameters,
           iceServers: msg.iceServers as RTCIceServer[] | undefined,
+          iceTransportPolicy: 'relay' as const,
         };
         if (msg.direction === 'send') {
           this.sendTransport = this.device.createSendTransport(params);
