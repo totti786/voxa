@@ -112,7 +112,9 @@ export class VoiceApp {
   private setupSignalingHandlers(): void {
     this.signaling.onMessage((msg) => this.handleServerMessage(msg));
     this.signaling.onConnect(() => {
+      const wasConnecting = this.store.getState().connecting;
       this.store.setState({ connected: true, connecting: false, reconnecting: false });
+      if (wasConnecting) return;
       const state = this.store.getState();
       if (state.roomId && state.displayName) {
         this.signaling.send({ type: 'join', room: state.roomId, display_name: state.displayName });
