@@ -164,6 +164,19 @@ body {
   color: var(--accent-red);
 }
 
+.orb-ring.ptt-active {
+  border-color: #2ecc71;
+  box-shadow:
+    0 0 50px rgba(46, 204, 113, 0.4),
+    0 0 100px rgba(46, 204, 113, 0.06),
+    inset 0 0 50px rgba(46, 204, 113, 0.04);
+  background: radial-gradient(circle at 50% 50%, rgba(46, 204, 113, 0.06) 0%, transparent 60%);
+}
+
+.orb-ring.ptt-active ~ .orb-label {
+  color: #2ecc71;
+}
+
 @keyframes muted-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }

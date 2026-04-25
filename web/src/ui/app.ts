@@ -549,16 +549,51 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     canvasCtx: ctx, animId, chatPanel, chatMessages, chatInput, lastMessageCount: 0,
   };
 
-  orbWrap.onclick = () => app.setMute(!app.store.getState().localMuted);
+  orbWrap.onpointerdown = (e) => {
+    if (app.store.getState().pttEnabled) {
+      e.preventDefault();
+      app.setPttActive(true);
+    }
+  };
+  orbWrap.onpointerup = () => {
+    if (app.store.getState().pttEnabled) {
+      app.setPttActive(false);
+    }
+  };
+  orbWrap.onpointerleave = () => {
+    if (app.store.getState().pttEnabled) {
+      app.setPttActive(false);
+    }
+  };
+  orbWrap.onclick = () => {
+    if (!app.store.getState().pttEnabled) {
+      app.setMute(!app.store.getState().localMuted);
+    }
+  };
   els.connectedScreen = connected;
 }
 
 function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp): void {
   els.orbWrap.className = 'orb-container' + (state.localSpeaking ? '' : ' idle');
   els.orbWrap.querySelectorAll('.orb-ring').forEach((ring) => {
-    ring.className = 'orb-ring' + (state.localMuted ? ' muted' : state.localSpeaking ? ' active' : '');
+    let modifier = '';
+    if (state.localMuted) {
+      modifier = ' muted';
+    } else if (state.pttActive) {
+      modifier = ' ptt-active';
+    } else if (state.localSpeaking) {
+      modifier = ' active';
+    }
+    ring.className = 'orb-ring' + modifier;
   });
-  els.orbLabel.textContent = state.localMuted ? 'Muted — Click to unmute' : 'Click to mute';
+
+  let label = '';
+  if (state.pttEnabled) {
+    label = state.localMuted ? 'Muted' : state.pttActive ? 'Talking...' : 'Hold to talk';
+  } else {
+    label = state.localMuted ? 'Muted — Click to unmute' : 'Click to mute';
+  }
+  els.orbLabel.textContent = label;
 
   renderParticipants(els.participants, state.peers, app);
   renderControls(els.controls, app, state);
