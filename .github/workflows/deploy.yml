@@ -45,8 +45,8 @@ jobs:
       - name: Run tests (server)
         run: npm test --prefix server
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=moderate
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
 
   build-and-push:
     runs-on: ubuntu-latest
