@@ -115,7 +115,7 @@ export class VoiceApp {
       this.store.setState({ connected: true, connecting: false, reconnecting: false });
       const state = this.store.getState();
       if (state.roomId && state.displayName) {
-        this.signaling.send({ type: 'join', room_id: state.roomId, display_name: state.displayName });
+        this.signaling.send({ type: 'join', room: state.roomId, display_name: state.displayName });
       }
     });
     this.signaling.onDisconnect(() => {
