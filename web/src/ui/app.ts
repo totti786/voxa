@@ -251,6 +251,10 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
 
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'Your name';
+  const savedName = localStorage.getItem('voxa-username');
+  if (savedName) {
+    nameInput.value = savedName;
+  }
   wrap.appendChild(nameInput);
 
   const passInput = document.createElement('input');
@@ -595,7 +599,7 @@ function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp)
   }
   els.orbLabel.textContent = label;
 
-  renderParticipants(els.participants, state.peers, app);
+  renderParticipants(els.participants, state.peers, app, state.roomId ?? '');
   renderControls(els.controls, app, state);
 
   if (state.messages.length !== els.lastMessageCount) {

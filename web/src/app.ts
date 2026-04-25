@@ -129,6 +129,7 @@ export class VoiceApp {
 
   async join(roomId: string, displayName: string, password?: string): Promise<void> {
     this.store.setState({ connecting: true, roomId, displayName, joinError: null });
+    localStorage.setItem('voxa-username', displayName);
     this.signaling.connect();
     const TIMEOUT_MS = 10000;
     const POLL_MS = 50;
