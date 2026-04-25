@@ -31,15 +31,18 @@ export class SignalingClient {
   connect(): void {
     this.shouldReconnect = true;
     this.sendQueue = [];
-    this.ws = new WebSocket(this.url);
+    const socket = new WebSocket(this.url);
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    socket.onopen = () => {
+      if (this.ws !== socket) return;
       this.reconnectDelay = 1000;
       this.flushSendQueue();
       this.connectHandlers.forEach((h) => h());
     };
 
-    this.ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.ws !== socket) return;
       let data: string;
       if (typeof event.data === 'string') {
         data = event.data;
@@ -52,7 +55,8 @@ export class SignalingClient {
       this.enqueueMessage(data);
     };
 
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      if (this.ws !== socket) return;
       this.disconnectHandlers.forEach((h) => h());
       if (this.shouldReconnect) {
         this.reconnectingHandlers.forEach((h) => h());
@@ -61,7 +65,8 @@ export class SignalingClient {
       }
     };
 
-    this.ws.onerror = (err) => {
+    socket.onerror = (err) => {
+      if (this.ws !== socket) return;
       console.error('WebSocket error:', err);
     };
   }

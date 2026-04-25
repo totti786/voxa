@@ -43,4 +43,21 @@ describe('SignalingClient', () => {
     wsInstance.onmessage({ data: JSON.stringify({ type: 'joined', peers: [] }) });
     expect(onMessage).toHaveBeenCalledWith({ type: 'joined', peers: [] });
   });
+
+  it('ignores stale socket closes after a reconnect', () => {
+    const onDisconnect = vi.fn();
+    client.onDisconnect(onDisconnect);
+
+    client.connect();
+    const firstSocket = (global.WebSocket as unknown as ReturnType<typeof vi.fn>).mock.results[0].value;
+
+    client.connect();
+    const secondSocket = (global.WebSocket as unknown as ReturnType<typeof vi.fn>).mock.results[1].value;
+
+    firstSocket.onclose();
+    expect(onDisconnect).not.toHaveBeenCalled();
+
+    secondSocket.onclose();
+    expect(onDisconnect).toHaveBeenCalledTimes(1);
+  });
 });
