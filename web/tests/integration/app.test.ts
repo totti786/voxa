@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { VoiceApp, createAppState } from '../../src/app.js';
+import { VoiceApp } from '../../src/app.js';
 
 describe('VoiceApp integration', () => {
   beforeEach(() => {
@@ -20,12 +20,28 @@ describe('VoiceApp integration', () => {
     expect(state.localMuted).toBe(false);
   });
 
-  it('toggles mute state', () => {
+  it('toggles mute state and pauses the producer', () => {
     const app = new VoiceApp('ws://test/ws');
+    const producer = {
+      paused: false,
+      pause: vi.fn(function (this: any) {
+        this.paused = true;
+      }),
+      resume: vi.fn(function (this: any) {
+        this.paused = false;
+      }),
+    };
+    app.producer = producer as any;
+
     app.setMute(true);
     expect(app.store.getState().localMuted).toBe(true);
+    expect(producer.pause).toHaveBeenCalled();
+    expect(producer.paused).toBe(true);
+
     app.setMute(false);
     expect(app.store.getState().localMuted).toBe(false);
+    expect(producer.resume).toHaveBeenCalled();
+    expect(producer.paused).toBe(false);
   });
 
   it('toggles deafen state', () => {
@@ -34,6 +50,29 @@ describe('VoiceApp integration', () => {
     expect(app.store.getState().deafened).toBe(true);
     app.setDeafen(false);
     expect(app.store.getState().deafened).toBe(false);
+  });
+
+  it('gates outgoing audio with push-to-talk using the producer', () => {
+    const app = new VoiceApp('ws://test/ws');
+    const producer = {
+      paused: false,
+      pause: vi.fn(function (this: any) {
+        this.paused = true;
+      }),
+      resume: vi.fn(function (this: any) {
+        this.paused = false;
+      }),
+    };
+    app.producer = producer as any;
+
+    app.store.setState({ pttEnabled: true });
+    app.setPttActive(false);
+    expect(producer.pause).toHaveBeenCalled();
+    expect(producer.paused).toBe(true);
+
+    app.setPttActive(true);
+    expect(producer.resume).toHaveBeenCalled();
+    expect(producer.paused).toBe(false);
   });
 
   it('produces the processed audio track when an audio graph is available', async () => {

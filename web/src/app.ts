@@ -124,16 +124,7 @@ export class VoiceApp {
   setMute(muted: boolean): void {
     this.store.setState({ localMuted: muted });
     this.signaling.setMute(muted);
-    if (this.localStream) {
-      this.localStream.getAudioTracks().forEach((t) => (t.enabled = !muted));
-    }
-    if (this.producer) {
-      if (muted) {
-        this.producer.pause();
-      } else {
-        this.producer.resume();
-      }
-    }
+    this.syncOutgoingAudioState();
   }
 
   setDeafen(deafened: boolean): void {
@@ -157,11 +148,22 @@ export class VoiceApp {
     }
   }
 
+  private syncOutgoingAudioState(): void {
+    if (!this.producer) return;
+
+    const state = this.store.getState();
+    const shouldSend = !state.localMuted && (!state.pttEnabled || state.pttActive);
+
+    if (shouldSend && this.producer.paused) {
+      this.producer.resume();
+    } else if (!shouldSend && !this.producer.paused) {
+      this.producer.pause();
+    }
+  }
+
   setPttActive(active: boolean): void {
     this.store.setState({ pttActive: active });
-    if (this.localStream) {
-      this.localStream.getAudioTracks().forEach((t) => (t.enabled = active));
-    }
+    this.syncOutgoingAudioState();
   }
 
   getFrequencyData(): Uint8Array | null {
@@ -234,9 +236,7 @@ export class VoiceApp {
     try {
       this.producer = await this.sendTransport.produce({ track });
       console.log('[AUDIO] Producer created, id=', this.producer.id);
-      if (this.store.getState().localMuted) {
-        this.producer.pause();
-      }
+      this.syncOutgoingAudioState();
     } catch (err) {
       console.error('[AUDIO] Failed to produce:', err);
     }
