@@ -113,6 +113,10 @@ export class VoiceApp {
     this.signaling.onMessage((msg) => this.handleServerMessage(msg));
     this.signaling.onConnect(() => {
       this.store.setState({ connected: true, connecting: false, reconnecting: false });
+      const state = this.store.getState();
+      if (state.roomId && state.displayName) {
+        this.signaling.send({ type: 'join', room_id: state.roomId, display_name: state.displayName });
+      }
     });
     this.signaling.onDisconnect(() => {
       this.store.setState({ connected: false });
@@ -397,6 +401,7 @@ export class VoiceApp {
     this.pendingConsumers = [];
     this.clearPendingCallbacks();
     this.localAudioSetup = false;
+    this.store.setState({ peers: [] });
   }
 
   private clearPendingCallbacks(): void {
@@ -419,8 +424,10 @@ export class VoiceApp {
         break;
       }
       case 'peer_joined': {
-        const peers = [...this.store.getState().peers, msg.peer];
-        this.store.setState({ peers });
+        const peers = this.store.getState().peers;
+        if (!peers.find((p) => p.id === msg.peer.id)) {
+          this.store.setState({ peers: [...peers, msg.peer] });
+        }
         break;
       }
       case 'peer_left': {

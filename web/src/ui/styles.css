@@ -847,7 +847,7 @@ body {
   width: 320px;
   max-width: 35vw;
   height: 420px;
-  display: flex;
+  display: none !important;
   flex-direction: column;
   background: var(--bg-glass);
   border: 1px solid var(--border-subtle);
