@@ -8,11 +8,13 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
   switch (msg.type) {
     case 'join':
       if (typeof msg.room !== 'string' || typeof msg.display_name !== 'string') return null;
+      if (!msg.room.trim() || msg.room.length > 64) return null;
+      if (!msg.display_name.trim() || msg.display_name.length > 32) return null;
       return {
         type: 'join',
-        room: msg.room,
+        room: msg.room.trim(),
         password: typeof msg.password === 'string' ? msg.password : undefined,
-        display_name: msg.display_name,
+        display_name: msg.display_name.trim(),
       };
     case 'offer':
       if (typeof msg.sdp !== 'string') return null;
@@ -80,6 +82,11 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
         type: 'resume_consumer',
         consumerId: msg.consumerId,
       };
+    case 'chat':
+      if (typeof msg.text !== 'string') return null;
+      const trimmed = msg.text.trim();
+      if (!trimmed || trimmed.length > 500) return null;
+      return { type: 'chat', text: trimmed };
     case 'leave':
       return { type: 'leave' };
     default:

@@ -1,6 +1,8 @@
 import http from 'http';
+import crypto from 'crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { validateClientMessage, encodeServerMessage } from './protocol.js';
+import type { Router } from 'mediasoup/types';
 import { joinRoom, leaveRoom, setMute } from '../room/manager.js';
 import { roomState } from '../room/state.js';
 import { createRouter, getRouter } from '../sfu/router.js';
@@ -16,15 +18,42 @@ interface ClientContext {
 }
 
 const clients = new Map<WebSocket, ClientContext>();
+const routerLocks = new Map<string, Promise<Router>>();
+
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimits = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_MAX = 30;
+const RATE_LIMIT_WINDOW_MS = 10000;
+
+const chatRateLimits = new Map<string, RateLimitEntry>();
+const CHAT_RATE_LIMIT_MAX = 5;
+const CHAT_RATE_LIMIT_WINDOW_MS = 10000;
 
 export function createSignalingServer(options: { port?: number; server?: http.Server }): WebSocketServer {
-  const wss = new WebSocketServer(options);
+  const wss = new WebSocketServer({ ...options, maxPayload: 65536 });
 
   wss.on('connection', (ws) => {
     const peerId = generatePeerId();
     clients.set(ws, { peerId, roomId: null, ws });
 
     ws.on('message', (raw) => {
+      const now = Date.now();
+      const limit = rateLimits.get(peerId);
+      if (limit && now < limit.resetTime) {
+        limit.count += 1;
+        if (limit.count > RATE_LIMIT_MAX) {
+          send(ws, { type: 'error', message: 'rate_limited' });
+          ws.close(1008, 'rate_limited');
+          return;
+        }
+      } else {
+        rateLimits.set(peerId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+      }
+
       let data: unknown;
       try {
         data = JSON.parse(raw.toString());
@@ -39,7 +68,10 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
         return;
       }
 
-      handleMessage(ws, msg);
+      handleMessage(ws, msg).catch((err) => {
+        console.error('Message handler error:', err);
+        send(ws, { type: 'error', message: 'Internal error' });
+      });
     });
 
     ws.on('close', () => {
@@ -48,6 +80,8 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
         handlePeerLeave(ctx.roomId, ctx.peerId);
       }
       clients.delete(ws);
+      rateLimits.delete(peerId);
+      chatRateLimits.delete(peerId);
     });
   });
 
@@ -61,7 +95,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
 
   switch (msg.type) {
     case 'join': {
-      const result = joinRoom(msg.room, ctx.peerId, msg.display_name, ws.toString(), msg.password);
+      const result = joinRoom(msg.room, ctx.peerId, msg.display_name, ctx.peerId, msg.password);
       if (!result.success) {
         send(ws, { type: 'error', message: result.error || 'join_failed' });
         return;
@@ -70,7 +104,14 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
 
       let router = getRouter(msg.room);
       if (!router) {
-        router = await createRouter(msg.room);
+        let lock = routerLocks.get(msg.room);
+        if (!lock) {
+          lock = createRouter(msg.room).finally(() => {
+            routerLocks.delete(msg.room);
+          });
+          routerLocks.set(msg.room, lock);
+        }
+        router = await lock;
       }
 
       send(ws, { type: 'router_capabilities', rtpCapabilities: router.rtpCapabilities });
@@ -133,6 +174,25 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       }
       break;
     }
+    case 'chat': {
+      if (!ctx.roomId) {
+        send(ws, { type: 'error', message: 'not_in_room' });
+        return;
+      }
+      const now = Date.now();
+      const chatLimit = chatRateLimits.get(ctx.peerId);
+      if (chatLimit && now < chatLimit.resetTime) {
+        chatLimit.count += 1;
+        if (chatLimit.count > CHAT_RATE_LIMIT_MAX) {
+          send(ws, { type: 'error', message: 'chat_rate_limited' });
+          return;
+        }
+      } else {
+        chatRateLimits.set(ctx.peerId, { count: 1, resetTime: now + CHAT_RATE_LIMIT_WINDOW_MS });
+      }
+      broadcast(ctx.roomId, { type: 'chat', peer_id: ctx.peerId, text: msg.text, timestamp: Date.now() }, ctx.peerId);
+      break;
+    }
     case 'connect_transport': {
       if (!ctx.roomId) {
         send(ws, { type: 'error', message: 'not_in_room' });
@@ -180,7 +240,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       
       setTimeout(async () => {
         const peer = roomState.getPeer(ctx.roomId!, ctx.peerId);
-        if (peer?.producer) {
+        if (peer?.producer && !peer.producer.closed) {
           const stats = await peer.producer.getStats();
           console.log('[SERVER] Producer stats for', ctx.peerId, ':', Array.from(stats.values()).map((s: any) => ({ type: s.type, bytesSent: s.bytesSent, packetsSent: s.packetsSent })));
         }
@@ -211,16 +271,18 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         return;
       }
       const peer = roomState.getPeer(ctx.roomId, ctx.peerId);
-      if (peer && peer.consumers) {
-        const consumer = peer.consumers.get(msg.consumerId);
-        if (consumer) {
-          console.log('[SERVER] Resuming consumer', msg.consumerId, 'for peer', ctx.peerId);
-          await consumer.resume();
-          console.log('[SERVER] Consumer resumed, paused=', consumer.paused);
-        } else {
-          console.log('[SERVER] Consumer not found:', msg.consumerId);
-        }
+      if (!peer || !peer.consumers) {
+        send(ws, { type: 'error', message: 'peer_not_found' });
+        return;
       }
+      const consumer = peer.consumers.get(msg.consumerId);
+      if (!consumer) {
+        send(ws, { type: 'error', message: 'consumer_not_found' });
+        return;
+      }
+      console.log('[SERVER] Resuming consumer', msg.consumerId, 'for peer', ctx.peerId);
+      await consumer.resume();
+      console.log('[SERVER] Consumer resumed, paused=', consumer.paused);
       break;
     }
     case 'offer': {
@@ -254,11 +316,13 @@ function handlePeerLeave(roomId: string, peerId: string): void {
     }
   }
 
+  const room = roomState.getRoom(roomId);
+  const isLastPeer = room ? room.peers.size === 1 && room.peers.has(peerId) : false;
+
   leaveRoom(roomId, peerId);
   broadcast(roomId, { type: 'peer_left', peer_id: peerId });
 
-  const room = roomState.getRoom(roomId);
-  if (room && room.peers.size === 0) {
+  if (isLastPeer) {
     import('../sfu/router.js').then(({ closeRouter }) => closeRouter(roomId));
   }
 }
@@ -269,6 +333,11 @@ async function createConsumersForPeer(roomId: string, peerId: string): Promise<v
 
   const existingPeers = roomState.getPeers(roomId).filter((p) => p.id !== peerId && p.producer);
   for (const existingPeer of existingPeers) {
+    const hasConsumer = Array.from(peer.consumers.values()).some(
+      (c) => c.producerId === existingPeer.producer!.id
+    );
+    if (hasConsumer) continue;
+
     const consumerInfo = await createConsumer(roomId, peerId, existingPeer.producer!);
     if (!consumerInfo) continue;
     const ctx = findClientByPeerId(peerId);
@@ -299,7 +368,7 @@ function send(ws: WebSocket, msg: ServerMessage): void {
 }
 
 function generatePeerId(): string {
-  return `peer_${Math.random().toString(36).slice(2, 9)}`;
+  return `peer_${crypto.randomUUID()}`;
 }
 
 function findClientByPeerId(peerId: string): ClientContext | undefined {

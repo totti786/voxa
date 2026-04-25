@@ -1,15 +1,16 @@
 import { Device } from 'mediasoup-client';
 import type { Transport, Producer, Consumer, DtlsParameters, RtpParameters, RtpCapabilities, IceParameters, IceCandidate, MediaKind } from 'mediasoup-client/types';
 import { SignalingClient } from './signaling/client.js';
-import { captureAudio, stopCapture } from './audio/capture.js';
+import { captureAudio, stopCapture, enumerateAudioDevices } from './audio/capture.js';
 import { createAudioGraph, closeAudioGraph, setInputGain } from './audio/processing.js';
 import { VADAnalyzer } from './audio/vad.js';
 import { Store } from './state/store.js';
-import type { PeerInfo, ServerMessage, RoomSummary } from './types.js';
+import type { PeerInfo, ServerMessage, RoomSummary, ChatMessage } from './types.js';
 
 export interface AppState {
   connected: boolean;
   connecting: boolean;
+  reconnecting: boolean;
   roomId: string | null;
   displayName: string;
   peers: PeerInfo[];
@@ -18,16 +19,21 @@ export interface AppState {
   deafened: boolean;
   inputGain: number;
   noiseGateThreshold: number;
+  outputVolume: number;
   pttEnabled: boolean;
   pttActive: boolean;
   rooms: RoomSummary[];
   roomsLoading: boolean;
+  joinError: string | null;
+  selectedDeviceId: string | null;
+  messages: ChatMessage[];
 }
 
 export function createAppState(): Store<AppState> {
   return new Store<AppState>({
     connected: false,
     connecting: false,
+    reconnecting: false,
     roomId: null,
     displayName: '',
     peers: [],
@@ -36,10 +42,14 @@ export function createAppState(): Store<AppState> {
     deafened: false,
     inputGain: 1.0,
     noiseGateThreshold: -45,
+    outputVolume: 1.0,
     pttEnabled: false,
     pttActive: false,
     rooms: [],
     roomsLoading: false,
+    joinError: null,
+    selectedDeviceId: null,
+    messages: [],
   });
 }
 
@@ -55,15 +65,23 @@ export class VoiceApp {
   audioGraph: ReturnType<typeof createAudioGraph> | null = null;
   vad: VADAnalyzer | null = null;
   vadInterval: ReturnType<typeof setInterval> | null = null;
+  fetchRoomsInterval: ReturnType<typeof setInterval> | null = null;
   remoteAudioElements = new Map<string, HTMLAudioElement>();
+  peerVolumes = new Map<string, number>();
+  private localAudioSetup = false;
+  private readonly TRANSPORT_TIMEOUT_MS = 10000;
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
   private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
-  private pendingTransportConnect: Partial<Record<'send' | 'recv', { callback: () => void; errback: (error: Error) => void }>> = {};
+  private pendingTransportConnect: Partial<Record<'send' | 'recv', { callback: () => void; errback: (error: Error) => void; timeoutId: ReturnType<typeof setTimeout> }>> = {};
 
   constructor(signalingUrl: string) {
     this.store = createAppState();
     this.signaling = new SignalingClient(signalingUrl);
     this.setupSignalingHandlers();
+  }
+
+  async enumerateAudioDevices() {
+    return enumerateAudioDevices();
   }
 
   async fetchRooms(): Promise<void> {
@@ -79,46 +97,79 @@ export class VoiceApp {
     }
   }
 
+  startFetchRoomsLoop(): void {
+    if (this.fetchRoomsInterval) return;
+    this.fetchRoomsInterval = setInterval(() => this.fetchRooms(), 5000);
+  }
+
+  stopFetchRoomsLoop(): void {
+    if (this.fetchRoomsInterval) {
+      clearInterval(this.fetchRoomsInterval);
+      this.fetchRoomsInterval = null;
+    }
+  }
+
   private setupSignalingHandlers(): void {
     this.signaling.onMessage((msg) => this.handleServerMessage(msg));
     this.signaling.onConnect(() => {
-      this.store.setState({ connected: true, connecting: false });
+      this.store.setState({ connected: true, connecting: false, reconnecting: false });
     });
     this.signaling.onDisconnect(() => {
       this.store.setState({ connected: false });
       this.cleanupCall();
     });
+    this.signaling.onReconnecting(() => {
+      this.store.setState({ reconnecting: true });
+    });
   }
 
   async join(roomId: string, displayName: string, password?: string): Promise<void> {
-    this.store.setState({ connecting: true, roomId, displayName });
+    this.store.setState({ connecting: true, roomId, displayName, joinError: null });
     this.signaling.connect();
     const TIMEOUT_MS = 10000;
     const POLL_MS = 50;
     const maxAttempts = TIMEOUT_MS / POLL_MS;
-    await new Promise<void>((resolve, reject) => {
-      let attempts = 0;
-      const check = () => {
-        if (this.store.getState().connected) {
-          resolve();
-        } else if (attempts++ > maxAttempts) {
-          this.signaling.disconnect();
-          this.store.setState({ connecting: false, roomId: null });
-          reject(new Error('Connection timed out'));
-        } else {
-          setTimeout(check, POLL_MS);
-        }
-      };
-      check();
-    });
-    this.signaling.join(roomId, displayName, password);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let attempts = 0;
+        const check = () => {
+          if (this.store.getState().connected) {
+            resolve();
+          } else if (attempts++ > maxAttempts) {
+            this.signaling.disconnect();
+            this.store.setState({ connecting: false, roomId: null, joinError: 'Connection timed out. Please try again.' });
+            reject(new Error('Connection timed out'));
+          } else {
+            setTimeout(check, POLL_MS);
+          }
+        };
+        check();
+      });
+      this.signaling.join(roomId, displayName, password);
+    } catch (err) {
+      console.error('[JOIN] Failed:', err);
+    }
   }
 
   leave(): void {
     this.signaling.leave();
-    this.signaling.disconnect();
+    this.signaling.flushAndDisconnect();
     this.cleanupCall();
-    this.store.setState({ roomId: null, peers: [], connected: false });
+    this.store.setState({ roomId: null, peers: [], connected: false, messages: [] });
+  }
+
+  sendChat(text: string): void {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.signaling.sendChat(trimmed);
+    const ownPeerId = this.store.getState().peers.find((p) => p.display_name === this.store.getState().displayName)?.id || 'self';
+    const msg: ChatMessage = {
+      type: 'chat',
+      peer_id: ownPeerId,
+      text: trimmed,
+      timestamp: Date.now(),
+    };
+    this.store.setState({ messages: [...this.store.getState().messages, msg] });
   }
 
   setMute(muted: boolean): void {
@@ -148,6 +199,34 @@ export class VoiceApp {
     }
   }
 
+  setNoiseGateThreshold(thresholdDb: number): void {
+    this.store.setState({ noiseGateThreshold: thresholdDb });
+    if (this.vad) {
+      this.vad = new VADAnalyzer(this.audioGraph!.analyzer, {
+        thresholdDb,
+        hysteresisDb: 6,
+        smoothingFrames: 3,
+      });
+    }
+  }
+
+  setOutputVolume(volume: number): void {
+    this.store.setState({ outputVolume: volume });
+    this.remoteAudioElements.forEach((el, peerId) => {
+      const peerVol = this.peerVolumes.get(peerId) ?? 1;
+      el.volume = volume * peerVol;
+    });
+  }
+
+  setPeerVolume(peerId: string, volume: number): void {
+    this.peerVolumes.set(peerId, volume);
+    const el = this.remoteAudioElements.get(peerId);
+    if (el) {
+      const masterVol = this.store.getState().outputVolume;
+      el.volume = masterVol * volume;
+    }
+  }
+
   private syncOutgoingAudioState(): void {
     if (!this.producer) return;
 
@@ -174,10 +253,13 @@ export class VoiceApp {
   }
 
   private async setupLocalAudio(): Promise<void> {
+    if (this.localAudioSetup) return;
+    this.localAudioSetup = true;
     console.log('[AUDIO] Setting up local audio capture...');
     console.log('[AUDIO] sendTransport exists:', !!this.sendTransport);
     try {
-      this.localStream = await captureAudio();
+      const deviceId = this.store.getState().selectedDeviceId;
+      this.localStream = await captureAudio(deviceId ? { deviceId } : {});
     } catch (err) {
       console.error('[AUDIO] Failed to get microphone:', err);
       alert('Microphone access is required. Please allow microphone access and try again.');
@@ -221,6 +303,7 @@ export class VoiceApp {
   }
 
   private async produceAudio(): Promise<void> {
+    if (this.producer) return;
     if (!this.sendTransport || !this.localStream) {
       console.log('[AUDIO] Cannot produce: sendTransport=', !!this.sendTransport, 'localStream=', !!this.localStream);
       return;
@@ -285,6 +368,9 @@ export class VoiceApp {
     // Start muted so browser autoplay policy doesn't block the first remote track.
     // Once playback is live, unmute unless the user explicitly deafened.
     const shouldBeMuted = this.store.getState().deafened;
+    const peerVol = this.peerVolumes.get(peerId) ?? 1;
+    const masterVol = this.store.getState().outputVolume;
+    el.volume = masterVol * peerVol;
     const stream = new MediaStream([track]);
     el.srcObject = stream;
     el.muted = true;
@@ -328,7 +414,20 @@ export class VoiceApp {
     this.remoteAudioElements.forEach((el) => el.remove());
     this.remoteAudioElements.clear();
     this.pendingConsumers = [];
-    this.pendingTransportConnect = {};
+    this.clearPendingCallbacks();
+    this.localAudioSetup = false;
+  }
+
+  private clearPendingCallbacks(): void {
+    for (const key of Object.keys(this.pendingTransportConnect) as Array<'send' | 'recv'>) {
+      const pending = this.pendingTransportConnect[key];
+      if (pending) {
+        clearTimeout(pending.timeoutId);
+        pending.errback(new Error('Connection closed'));
+        delete this.pendingTransportConnect[key];
+      }
+    }
+    this.pendingProduceCallbacks = [];
   }
 
   private async handleServerMessage(msg: ServerMessage): Promise<void> {
@@ -393,7 +492,14 @@ export class VoiceApp {
           });
           this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
             console.log('[AUDIO] sendTransport connect event, dtlsParameters=', typeof dtlsParameters, 'fingerprints=', Array.isArray(dtlsParameters?.fingerprints));
-            this.pendingTransportConnect.send = { callback, errback };
+            const timeoutId = setTimeout(() => {
+              const p = this.pendingTransportConnect.send;
+              if (p) {
+                p.errback(new Error('Transport connection timeout'));
+                delete this.pendingTransportConnect.send;
+              }
+            }, this.TRANSPORT_TIMEOUT_MS);
+            this.pendingTransportConnect.send = { callback, errback, timeoutId };
             this.signaling.connectTransport('send', dtlsParameters);
           });
           this.sendTransport.on('produce', ({ kind, rtpParameters }: { kind: MediaKind; rtpParameters: RtpParameters }, callback: (data: { id: string }) => void) => {
@@ -407,7 +513,14 @@ export class VoiceApp {
             console.log('[AUDIO] recvTransport connection state:', state);
           });
           this.recvTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
-            this.pendingTransportConnect.recv = { callback, errback };
+            const timeoutId = setTimeout(() => {
+              const p = this.pendingTransportConnect.recv;
+              if (p) {
+                p.errback(new Error('Transport connection timeout'));
+                delete this.pendingTransportConnect.recv;
+              }
+            }, this.TRANSPORT_TIMEOUT_MS);
+            this.pendingTransportConnect.recv = { callback, errback, timeoutId };
             this.signaling.connectTransport('recv', dtlsParameters);
           });
           if (this.pendingConsumers.length > 0) {
@@ -435,6 +548,7 @@ export class VoiceApp {
       case 'transport_connected': {
         const pending = this.pendingTransportConnect[msg.direction];
         if (pending) {
+          clearTimeout(pending.timeoutId);
           pending.callback();
           delete this.pendingTransportConnect[msg.direction];
         }
@@ -443,6 +557,7 @@ export class VoiceApp {
       case 'transport_failed': {
         const pending = this.pendingTransportConnect[msg.direction];
         if (pending) {
+          clearTimeout(pending.timeoutId);
           pending.errback(new Error(msg.message));
           delete this.pendingTransportConnect[msg.direction];
         }
@@ -475,6 +590,10 @@ export class VoiceApp {
         }
         this.remoteAudioElements.get(msg.peerId)?.remove();
         this.remoteAudioElements.delete(msg.peerId);
+        break;
+      }
+      case 'chat': {
+        this.store.setState({ messages: [...this.store.getState().messages, msg] });
         break;
       }
       case 'error': {

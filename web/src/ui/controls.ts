@@ -96,4 +96,41 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   leaveBtn.style.top = `${leavePos.top}px`;
   leaveBtn.onclick = () => app.leave();
   container.appendChild(leaveBtn);
+
+  const extras = document.createElement('div');
+  extras.className = 'control-extras';
+
+  const outputVolWrap = document.createElement('div');
+  outputVolWrap.className = 'extra-slider';
+  const outputVolLabel = document.createElement('span');
+  outputVolLabel.textContent = `Output ${Math.round(state.outputVolume * 100)}%`;
+  const outputVolSlider = document.createElement('input');
+  outputVolSlider.type = 'range';
+  outputVolSlider.min = '0';
+  outputVolSlider.max = '200';
+  outputVolSlider.value = String(state.outputVolume * 100);
+  outputVolSlider.oninput = (e) => {
+    const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+    app.setOutputVolume(val);
+  };
+  outputVolWrap.append(outputVolLabel, outputVolSlider);
+  extras.appendChild(outputVolWrap);
+
+  const gateWrap = document.createElement('div');
+  gateWrap.className = 'extra-slider';
+  const gateLabel = document.createElement('span');
+  gateLabel.textContent = `Gate ${state.noiseGateThreshold}dB`;
+  const gateSlider = document.createElement('input');
+  gateSlider.type = 'range';
+  gateSlider.min = '-70';
+  gateSlider.max = '-20';
+  gateSlider.value = String(state.noiseGateThreshold);
+  gateSlider.oninput = (e) => {
+    const val = parseInt((e.target as HTMLInputElement).value, 10);
+    app.setNoiseGateThreshold(val);
+  };
+  gateWrap.append(gateLabel, gateSlider);
+  extras.appendChild(gateWrap);
+
+  container.appendChild(extras);
 }

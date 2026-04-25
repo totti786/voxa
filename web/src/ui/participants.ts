@@ -29,8 +29,17 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       <span class="peer-initials">${initials}</span>
       <span class="peer-status"></span>
       <span class="peer-name">${escapeHtml(peer.display_name)}</span>
-      <span class="volume-tooltip">${escapeHtml(peer.display_name)}</span>
+      <span class="volume-tooltip">
+        <span class="tooltip-name">${escapeHtml(peer.display_name)}</span>
+        <input type="range" class="peer-volume-slider" min="0" max="200" value="${Math.round((app.peerVolumes.get(peer.id) ?? 1) * 100)}">
+      </span>
     `;
+
+    const volSlider = orb.querySelector('.peer-volume-slider') as HTMLInputElement;
+    volSlider.oninput = (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+      app.setPeerVolume(peer.id, val);
+    };
 
     container.appendChild(orb);
   });

@@ -1,5 +1,6 @@
 import { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
+import type { PeerInfo } from '../types.js';
 import { renderParticipants } from './participants.js';
 import { renderControls } from './controls.js';
 
@@ -20,7 +21,9 @@ interface Elements {
   particleCanvas: HTMLCanvasElement;
   particleCtx: CanvasRenderingContext2D;
   particleAnimId: number | null;
+  reconnectingOverlay: HTMLElement;
   offlineScreen?: HTMLElement;
+  offlineElements?: OfflineElements;
   connectingScreen?: HTMLElement;
   connectedScreen?: ConnectedElements;
 }
@@ -34,6 +37,16 @@ interface ConnectedElements {
   controls: HTMLElement;
   canvasCtx: CanvasRenderingContext2D;
   animId: number | null;
+  chatPanel: HTMLElement;
+  chatMessages: HTMLElement;
+  chatInput: HTMLInputElement;
+  lastMessageCount: number;
+}
+
+interface OfflineElements {
+  errorEl: HTMLElement;
+  deviceSelect: HTMLSelectElement;
+  createForm: HTMLElement | null;
 }
 
 export function renderApp(container: HTMLElement, app: VoiceApp): void {
@@ -63,7 +76,13 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
   main.className = 'main';
   container.appendChild(main);
 
-  const els: Elements = { headerRoomInfo, main, particleCanvas, particleCtx, particleAnimId: null };
+  const reconnectingOverlay = document.createElement('div');
+  reconnectingOverlay.className = 'reconnecting-overlay';
+  reconnectingOverlay.innerHTML = '<div class="reconnecting-spinner"></div><p>Reconnecting...</p>';
+  reconnectingOverlay.style.display = 'none';
+  container.appendChild(reconnectingOverlay);
+
+  const els: Elements = { headerRoomInfo, main, particleCanvas, particleCtx, particleAnimId: null, reconnectingOverlay };
 
   function handleResize() {
     particleCanvas.width = window.innerWidth;
@@ -82,6 +101,7 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
     else screen = 'offline';
 
     els.headerRoomInfo.textContent = state.roomId ? state.roomId : 'OFFLINE';
+    els.reconnectingOverlay.style.display = state.reconnecting ? 'flex' : 'none';
 
     if (screen !== currentScreen) {
       currentScreen = screen;
@@ -101,6 +121,10 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
       updateConnected(els.connectedScreen, state, app);
     } else if (screen === 'offline' && els.offlineScreen) {
       updateOfflineScreen(els.offlineScreen, state);
+    }
+
+    if (screen === 'offline' && els.offlineElements) {
+      updateOfflineElements(els.offlineElements, state);
     }
   }
 
@@ -172,6 +196,11 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
     <div class="hero-subtitle">Join the conversation</div>
   `;
 
+  const errorEl = document.createElement('div');
+  errorEl.className = 'join-error';
+  errorEl.style.display = 'none';
+  wrap.appendChild(errorEl);
+
   const roomGrid = document.createElement('div');
   roomGrid.className = 'room-grid';
   wrap.appendChild(roomGrid);
@@ -184,11 +213,41 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   `;
   roomGrid.appendChild(createCard);
 
+  const createForm = document.createElement('div');
+  createForm.className = 'create-room-form';
+  createForm.style.display = 'none';
+  createForm.innerHTML = `
+    <input type="text" class="create-room-name" placeholder="Room name">
+    <input type="password" class="create-room-password" placeholder="Password (optional)">
+    <input type="number" class="create-room-max" placeholder="Max users" value="10" min="2" max="100">
+    <button class="create-room-submit">Create Room</button>
+  `;
+  wrap.appendChild(createForm);
+
   const newRoomInput = document.createElement('input');
   newRoomInput.className = 'new-room-input';
   newRoomInput.placeholder = 'Room name';
   newRoomInput.style.display = 'none';
   wrap.appendChild(newRoomInput);
+
+  const deviceSelect = document.createElement('select');
+  deviceSelect.className = 'device-select';
+  deviceSelect.innerHTML = '<option value="">Default Microphone</option>';
+  populateDeviceSelect(deviceSelect, app);
+  deviceSelect.onchange = () => {
+    const deviceId = deviceSelect.value || null;
+    app.store.setState({ selectedDeviceId: deviceId });
+    if (deviceId) {
+      localStorage.setItem('voxa-preferred-device', deviceId);
+    } else {
+      localStorage.removeItem('voxa-preferred-device');
+    }
+  };
+  const savedDevice = localStorage.getItem('voxa-preferred-device');
+  if (savedDevice) {
+    app.store.setState({ selectedDeviceId: savedDevice });
+  }
+  wrap.appendChild(deviceSelect);
 
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'Your name';
@@ -219,12 +278,69 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   createCard.onclick = () => {
     roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
     createCard.classList.add('selected');
-    newRoomInput.style.display = 'block';
-    newRoomInput.focus();
+    newRoomInput.style.display = 'none';
+    createForm.style.display = createForm.style.display === 'none' ? 'flex' : 'none';
+  };
+
+  const createSubmit = createForm.querySelector('.create-room-submit') as HTMLButtonElement;
+  createSubmit.onclick = () => {
+    const nameEl = createForm.querySelector('.create-room-name') as HTMLInputElement;
+    const passEl = createForm.querySelector('.create-room-password') as HTMLInputElement;
+    const maxEl = createForm.querySelector('.create-room-max') as HTMLInputElement;
+    const roomName = nameEl.value.trim();
+    const password = passEl.value || undefined;
+    const maxUsers = parseInt(maxEl.value, 10) || 10;
+    if (!roomName) return;
+    console.log('[CREATE ROOM]', { roomName, password, maxUsers });
+    fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: roomName, password, maxUsers }),
+    }).then(() => {
+      app.fetchRooms();
+      createForm.style.display = 'none';
+      newRoomInput.style.display = 'block';
+      newRoomInput.value = roomName;
+    }).catch((err) => {
+      console.error('Failed to create room:', err);
+    });
   };
 
   container.appendChild(wrap);
   els.offlineScreen = wrap;
+  els.offlineElements = { errorEl, deviceSelect, createForm };
+}
+
+async function populateDeviceSelect(select: HTMLSelectElement, app: VoiceApp): Promise<void> {
+  try {
+    const devices = await app.enumerateAudioDevices();
+    const inputs = devices.filter((d) => d.kind === 'audioinput');
+    const saved = localStorage.getItem('voxa-preferred-device');
+    select.innerHTML = '<option value="">Default Microphone</option>';
+    inputs.forEach((device) => {
+      const opt = document.createElement('option');
+      opt.value = device.deviceId;
+      opt.textContent = device.label;
+      select.appendChild(opt);
+    });
+    if (saved) {
+      select.value = saved;
+    }
+  } catch (err) {
+    console.error('Failed to enumerate devices:', err);
+  }
+}
+
+function updateOfflineElements(els: OfflineElements, state: AppState): void {
+  if (state.joinError) {
+    els.errorEl.textContent = state.joinError;
+    els.errorEl.style.display = 'block';
+    els.errorEl.classList.add('shake');
+    setTimeout(() => els.errorEl.classList.remove('shake'), 500);
+  } else {
+    els.errorEl.style.display = 'none';
+    els.errorEl.textContent = '';
+  }
 }
 
 function updateOfflineScreen(wrap: HTMLElement, state: AppState): void {
@@ -297,6 +413,10 @@ function renderConnectingScreen(container: HTMLElement, els: Elements): void {
 }
 
 function renderConnectedScreen(container: HTMLElement, els: Elements, app: VoiceApp): void {
+  const layout = document.createElement('div');
+  layout.className = 'connected-layout';
+  container.appendChild(layout);
+
   const orbWrap = document.createElement('div');
   orbWrap.className = 'orb-container';
 
@@ -312,11 +432,51 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   orbLabel.className = 'orb-label';
 
   orbWrap.append(ring, canvas, orbLabel);
-  container.appendChild(orbWrap);
+  layout.appendChild(orbWrap);
 
   const participants = document.createElement('div');
   participants.className = 'participants-ring';
   orbWrap.appendChild(participants);
+
+  const chatPanel = document.createElement('div');
+  chatPanel.className = 'chat-panel';
+
+  const chatHeader = document.createElement('div');
+  chatHeader.className = 'chat-header';
+  chatHeader.textContent = 'Chat';
+  chatPanel.appendChild(chatHeader);
+
+  const chatMessages = document.createElement('div');
+  chatMessages.className = 'chat-messages';
+  chatPanel.appendChild(chatMessages);
+
+  const chatInputWrap = document.createElement('div');
+  chatInputWrap.className = 'chat-input-wrap';
+
+  const chatInput = document.createElement('input');
+  chatInput.className = 'chat-input';
+  chatInput.placeholder = 'Type a message...';
+  chatInput.maxLength = 500;
+  chatInputWrap.appendChild(chatInput);
+
+  const chatSendBtn = document.createElement('button');
+  chatSendBtn.className = 'chat-send-btn';
+  chatSendBtn.textContent = 'Send';
+  chatSendBtn.onclick = () => {
+    app.sendChat(chatInput.value);
+    chatInput.value = '';
+  };
+  chatInputWrap.appendChild(chatSendBtn);
+
+  chatPanel.appendChild(chatInputWrap);
+  layout.appendChild(chatPanel);
+
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      app.sendChat(chatInput.value);
+      chatInput.value = '';
+    }
+  });
 
   const controls = document.createElement('div');
   container.appendChild(controls);
@@ -387,7 +547,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   const connected: ConnectedElements = {
     orbWrap, orbRing: ring, orbCanvas: canvas, orbLabel, participants, controls,
-    canvasCtx: ctx, animId,
+    canvasCtx: ctx, animId, chatPanel, chatMessages, chatInput, lastMessageCount: 0,
   };
 
   orbWrap.onclick = () => app.setMute(!app.store.getState().localMuted);
@@ -403,10 +563,52 @@ function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp)
 
   renderParticipants(els.participants, state.peers, app);
   renderControls(els.controls, app, state);
+
+  if (state.messages.length !== els.lastMessageCount) {
+    els.lastMessageCount = state.messages.length;
+    renderChatMessages(els.chatMessages, state.messages, state.peers, state.displayName);
+    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+  }
 }
 
 function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function formatTime(timestamp: number): string {
+  const d = new Date(timestamp);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderChatMessages(container: HTMLElement, messages: Array<{ peer_id: string; text: string; timestamp: number }>, peers: PeerInfo[], ownDisplayName: string): void {
+  container.innerHTML = '';
+  for (const msg of messages) {
+    const peer = peers.find((p) => p.id === msg.peer_id);
+    const displayName = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
+
+    const row = document.createElement('div');
+    row.className = 'chat-message';
+
+    const header = document.createElement('div');
+    header.className = 'chat-message-header';
+
+    const name = document.createElement('span');
+    name.className = 'chat-message-name';
+    name.textContent = displayName;
+
+    const time = document.createElement('span');
+    time.className = 'chat-message-time';
+    time.textContent = formatTime(msg.timestamp);
+
+    header.append(name, time);
+
+    const body = document.createElement('div');
+    body.className = 'chat-message-body';
+    body.textContent = msg.text;
+
+    row.append(header, body);
+    container.appendChild(row);
+  }
 }

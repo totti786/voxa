@@ -3,6 +3,7 @@ import type { ClientMessage, ServerMessage, PeerInfo } from '../types.js';
 export type MessageHandler = (msg: ServerMessage) => void | Promise<void>;
 export type ConnectHandler = () => void;
 export type DisconnectHandler = () => void;
+export type ReconnectingHandler = () => void;
 
 interface QueuedMessage {
   data: string;
@@ -18,8 +19,10 @@ export class SignalingClient {
   private messageHandlers: MessageHandler[] = [];
   private connectHandlers: ConnectHandler[] = [];
   private disconnectHandlers: DisconnectHandler[] = [];
+  private reconnectingHandlers: ReconnectingHandler[] = [];
   private messageQueue: QueuedMessage[] = [];
   private processingQueue = false;
+  private sendQueue: ClientMessage[] = [];
 
   constructor(url: string) {
     this.url = url;
@@ -27,10 +30,12 @@ export class SignalingClient {
 
   connect(): void {
     this.shouldReconnect = true;
+    this.sendQueue = [];
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
       this.reconnectDelay = 1000;
+      this.flushSendQueue();
       this.connectHandlers.forEach((h) => h());
     };
 
@@ -50,6 +55,7 @@ export class SignalingClient {
     this.ws.onclose = () => {
       this.disconnectHandlers.forEach((h) => h());
       if (this.shouldReconnect) {
+        this.reconnectingHandlers.forEach((h) => h());
         setTimeout(() => this.connect(), this.reconnectDelay);
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
       }
@@ -88,15 +94,37 @@ export class SignalingClient {
     this.processingQueue = false;
   }
 
+  private flushSendQueue(): void {
+    while (this.sendQueue.length > 0) {
+      const msg = this.sendQueue.shift()!;
+      this.ws?.send(JSON.stringify(msg));
+    }
+  }
+
   disconnect(): void {
     this.shouldReconnect = false;
+    this.flushSendQueue();
     this.ws?.close();
     this.ws = null;
+  }
+
+  flushAndDisconnect(): void {
+    this.shouldReconnect = false;
+    this.flushSendQueue();
+    const ws = this.ws;
+    setTimeout(() => {
+      ws?.close();
+      if (this.ws === ws) {
+        this.ws = null;
+      }
+    }, 100);
   }
 
   send(msg: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+    } else {
+      this.sendQueue.push(msg);
     }
   }
 
@@ -110,6 +138,10 @@ export class SignalingClient {
 
   onDisconnect(handler: DisconnectHandler): void {
     this.disconnectHandlers.push(handler);
+  }
+
+  onReconnecting(handler: ReconnectingHandler): void {
+    this.reconnectingHandlers.push(handler);
   }
 
   join(room: string, displayName: string, password?: string): void {
@@ -142,5 +174,9 @@ export class SignalingClient {
 
   resumeConsumer(consumerId: string): void {
     this.send({ type: 'resume_consumer', consumerId });
+  }
+
+  sendChat(text: string): void {
+    this.send({ type: 'chat', text });
   }
 }

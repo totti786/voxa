@@ -11,8 +11,15 @@ async function main() {
   console.log('mediasoup worker started');
 
   const server = http.createServer((req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    const origin = req.headers.origin || '';
+    const allowed = config.allowedOrigins && config.allowedOrigins.length > 0
+      ? config.allowedOrigins.includes(origin)
+      : true;
+
+    if (allowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin || (config.allowedOrigins?.[0] || '*'));
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -28,6 +35,26 @@ async function main() {
       return;
     }
 
+    if (req.url === '/api/rooms' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const roomId = data.roomId || `room-${Date.now()}`;
+          const password = data.password || undefined;
+          const maxUsers = data.maxUsers || 10;
+          roomState.createRoom(roomId, password, maxUsers);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ id: roomId, maxUsers, hasPassword: !!password }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'invalid_request' }));
+        }
+      });
+      return;
+    }
+
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'not_found' }));
   });
@@ -39,10 +66,16 @@ async function main() {
   });
 
   process.on('SIGINT', () => {
-    console.log('Shutting down...');
-    wss.close();
-    server.close();
-    process.exit(0);
+    console.log('Shutting down gracefully...');
+    wss.close(() => {
+      server.close(() => {
+        process.exit(0);
+      });
+    });
+    setTimeout(() => {
+      console.error('Forced shutdown');
+      process.exit(1);
+    }, 10000);
   });
 }
 

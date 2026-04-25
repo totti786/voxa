@@ -8,6 +8,7 @@ export interface ServerConfig {
   turnServer?: string;
   turnUsername?: string;
   turnCredential?: string;
+  allowedOrigins?: string[];
 }
 
 export interface IceServerConfig {
@@ -37,16 +38,30 @@ function normalizeTurnUrls(turnServer: string): string[] {
 }
 
 export function loadConfig(): ServerConfig {
+  const port = parseInt(process.env.PORT || '7880', 10);
+  if (Number.isNaN(port)) throw new Error(`Invalid PORT: ${process.env.PORT}`);
+
+  const rtcMinPort = parseInt(process.env.RTC_MIN_PORT || '10000', 10);
+  if (Number.isNaN(rtcMinPort)) throw new Error(`Invalid RTC_MIN_PORT: ${process.env.RTC_MIN_PORT}`);
+
+  const rtcMaxPort = parseInt(process.env.RTC_MAX_PORT || '10100', 10);
+  if (Number.isNaN(rtcMaxPort)) throw new Error(`Invalid RTC_MAX_PORT: ${process.env.RTC_MAX_PORT}`);
+
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : undefined;
+
   return {
-    port: parseInt(process.env.PORT || '7880', 10),
-    rtcMinPort: parseInt(process.env.RTC_MIN_PORT || '10000', 10),
-    rtcMaxPort: parseInt(process.env.RTC_MAX_PORT || '10100', 10),
+    port,
+    rtcMinPort,
+    rtcMaxPort,
     rtcAnnouncedIp: process.env.RTC_ANNOUNCED_IP || undefined,
     logLevel: process.env.LOG_LEVEL || 'warn',
     turnEnabled: process.env.TURN_ENABLED === 'true',
     turnServer: process.env.TURN_SERVER,
     turnUsername: process.env.TURN_USERNAME,
     turnCredential: process.env.TURN_CREDENTIAL,
+    allowedOrigins,
   };
 }
 

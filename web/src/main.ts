@@ -11,10 +11,16 @@ if (container) {
 }
 
 app.fetchRooms();
-setInterval(() => app.fetchRooms(), 5000);
+app.startFetchRoomsLoop();
+
+function isTypingTarget(e: Event): boolean {
+  const target = e.target as HTMLElement;
+  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+}
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  if (isTypingTarget(e)) return;
   if (e.key === 'm' || e.key === 'M') {
     const state = app.store.getState();
     app.setMute(!state.localMuted);
@@ -29,6 +35,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keyup', (e) => {
+  if (isTypingTarget(e)) return;
   if (app.store.getState().pttEnabled && e.key === 'Control') {
     app.setPttActive(false);
   }

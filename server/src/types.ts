@@ -57,6 +57,11 @@ export interface ResumeConsumerMessage extends SignalingMessage {
   consumerId: string;
 }
 
+export interface ClientChatMessage extends SignalingMessage {
+  type: 'chat';
+  text: string;
+}
+
 export type ClientMessage =
   | JoinMessage
   | OfferMessage
@@ -68,7 +73,8 @@ export type ClientMessage =
   | ConnectTransportMessage
   | ProduceMessage
   | ClientRtpCapabilitiesMessage
-  | ResumeConsumerMessage;
+  | ResumeConsumerMessage
+  | ClientChatMessage;
 
 export interface PeerInfo {
   id: string;
@@ -171,6 +177,13 @@ export interface ProducerClosedMessage extends SignalingMessage {
   peerId: string;
 }
 
+export interface ChatMessage extends SignalingMessage {
+  type: 'chat';
+  peer_id: string;
+  text: string;
+  timestamp: number;
+}
+
 export type ServerMessage =
   | JoinedMessage
   | PeerJoinedMessage
@@ -186,4 +199,5 @@ export type ServerMessage =
   | ProducerCreatedMessage
   | TransportConnectedMessage
   | TransportFailedMessage
-  | ProducerClosedMessage;
+  | ProducerClosedMessage
+  | ChatMessage;
