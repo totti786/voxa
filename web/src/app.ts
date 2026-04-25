@@ -263,27 +263,35 @@ export class VoiceApp {
 
   private playRemoteAudio(peerId: string, track: MediaStreamTrack): void {
     console.log('[AUDIO] Playing remote audio for peer', peerId, 'track kind=', track.kind, 'enabled=', track.enabled, 'muted=', track.muted);
-    
+
     track.onmute = () => console.log('[AUDIO] Track muted for peer', peerId);
     track.onunmute = () => console.log('[AUDIO] Track unmuted for peer', peerId);
     track.onended = () => console.log('[AUDIO] Track ended for peer', peerId);
-    
+
     let el = this.remoteAudioElements.get(peerId);
     if (!el) {
       el = document.createElement('audio');
       el.autoplay = true;
-      el.muted = this.store.getState().deafened;
+      el.setAttribute('playsinline', 'true');
+      el.preload = 'auto';
+      el.muted = true;
       el.volume = 1;
       el.style.position = 'absolute';
       el.style.opacity = '0';
       document.body.appendChild(el);
       this.remoteAudioElements.set(peerId, el);
     }
+
+    // Start muted so browser autoplay policy doesn't block the first remote track.
+    // Once playback is live, unmute unless the user explicitly deafened.
+    const shouldBeMuted = this.store.getState().deafened;
     const stream = new MediaStream([track]);
     el.srcObject = stream;
+    el.muted = true;
     console.log('[AUDIO] Calling play() for peer', peerId, 'element paused=', el.paused, 'muted=', el.muted, 'volume=', el.volume);
     el.play().then(() => {
       console.log('[AUDIO] play() succeeded for peer', peerId);
+      el!.muted = shouldBeMuted;
     }).catch((err) => {
       console.error('[AUDIO] Failed to play remote audio:', err.name, err.message);
     });
