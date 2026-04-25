@@ -62,18 +62,15 @@ export async function createConsumer(
   const peer = roomState.getPeer(roomId, peerId);
   const router = getRouter(roomId);
   if (!peer || !peer.recvTransport || !router) {
-    console.log('[CONSUMER] Missing peer/recvTransport/router for', peerId, 'peer=', !!peer, 'recvTransport=', !!peer?.recvTransport, 'router=', !!router);
     return null;
   }
 
   const rtpCapabilities = peer.rtpCapabilities;
   if (!rtpCapabilities) {
-    console.log('[CONSUMER] No rtpCapabilities for peer', peerId);
     return null;
   }
 
   if (!router.canConsume({ producerId: producer.id, rtpCapabilities })) {
-    console.log('[CONSUMER] canConsume returned false for peer', peerId, 'producer', producer.id);
     return null;
   }
 
@@ -85,7 +82,6 @@ export async function createConsumer(
   });
 
   peer.consumers.set(consumer.id, consumer);
-  console.log('[CONSUMER] Created consumer', consumer.id, 'for peer', peerId, 'from producer', producer.id);
 
   return {
     consumerId: consumer.id,

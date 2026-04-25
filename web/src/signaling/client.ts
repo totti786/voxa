@@ -82,7 +82,6 @@ export class SignalingClient {
       const item = this.messageQueue.shift()!;
       try {
         const msg = JSON.parse(item.data) as ServerMessage;
-        console.log('[WS] Received:', msg.type);
         for (const h of this.messageHandlers) {
           await h(msg);
         }

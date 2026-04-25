@@ -291,7 +291,6 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
     const password = passEl.value || undefined;
     const maxUsers = parseInt(maxEl.value, 10) || 10;
     if (!roomName) return;
-    console.log('[CREATE ROOM]', { roomName, password, maxUsers });
     fetch('/api/rooms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

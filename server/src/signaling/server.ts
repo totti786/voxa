@@ -198,21 +198,13 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
-      console.log('[SERVER] connect_transport from peer', ctx.peerId, 'direction=', msg.direction);
-      console.log('[SERVER] dtlsParameters keys:', Object.keys(msg.dtlsParameters || {}));
-      console.log('[SERVER] dtlsParameters.fingerprints:', Array.isArray((msg.dtlsParameters as any)?.fingerprints) ? 'array' : 'missing');
-      if ((msg.dtlsParameters as any)?.fingerprints) {
-        console.log('[SERVER] first fingerprint:', JSON.stringify((msg.dtlsParameters as any).fingerprints[0]));
-      }
       try {
         const dtlsParams = (msg.dtlsParameters || {}) as Parameters<import('mediasoup/types').WebRtcTransport['connect']>[0]['dtlsParameters'];
-        console.log('[SERVER] About to connect with dtlsParams type:', typeof dtlsParams, 'has fingerprints:', !!dtlsParams?.fingerprints);
         const ok = await connectTransport(ctx.roomId, ctx.peerId, msg.direction, dtlsParams);
         if (!ok) {
           send(ws, { type: 'transport_failed', direction: msg.direction, message: 'connect_transport_failed' });
           return;
         }
-        console.log('[SERVER] connect_transport success for peer', ctx.peerId);
         send(ws, { type: 'transport_connected', direction: msg.direction });
         if (msg.direction === 'recv') {
           await createConsumersForPeer(ctx.roomId, ctx.peerId);
@@ -228,23 +220,12 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
-      console.log('[SERVER] produce from peer', ctx.peerId, 'kind=', msg.kind);
       const producerId = await produce(ctx.roomId, ctx.peerId, msg.kind, msg.rtpParameters as Parameters<import('mediasoup/types').WebRtcTransport['produce']>[0]['rtpParameters']);
       if (!producerId) {
-        console.log('[SERVER] produce failed for peer', ctx.peerId);
         send(ws, { type: 'error', message: 'produce_failed' });
         return;
       }
-      console.log('[SERVER] producer_created', producerId, 'for peer', ctx.peerId);
       send(ws, { type: 'producer_created', producerId });
-      
-      setTimeout(async () => {
-        const peer = roomState.getPeer(ctx.roomId!, ctx.peerId);
-        if (peer?.producer && !peer.producer.closed) {
-          const stats = await peer.producer.getStats();
-          console.log('[SERVER] Producer stats for', ctx.peerId, ':', Array.from(stats.values()).map((s: any) => ({ type: s.type, bytesSent: s.bytesSent, packetsSent: s.packetsSent })));
-        }
-      }, 3000);
 
       const peers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId);
       for (const otherPeer of peers) {
@@ -257,7 +238,6 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'not_in_room' });
         return;
       }
-      console.log('[SERVER] client_rtp_capabilities from peer', ctx.peerId);
       const peer = roomState.getPeer(ctx.roomId, ctx.peerId);
       if (peer) {
         peer.rtpCapabilities = msg.rtpCapabilities as import('mediasoup/types').RtpCapabilities;
@@ -280,9 +260,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         send(ws, { type: 'error', message: 'consumer_not_found' });
         return;
       }
-      console.log('[SERVER] Resuming consumer', msg.consumerId, 'for peer', ctx.peerId);
       await consumer.resume();
-      console.log('[SERVER] Consumer resumed, paused=', consumer.paused);
       break;
     }
     case 'offer': {

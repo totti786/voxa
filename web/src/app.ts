@@ -255,8 +255,6 @@ export class VoiceApp {
   private async setupLocalAudio(): Promise<void> {
     if (this.localAudioSetup) return;
     this.localAudioSetup = true;
-    console.log('[AUDIO] Setting up local audio capture...');
-    console.log('[AUDIO] sendTransport exists:', !!this.sendTransport);
     try {
       const deviceId = this.store.getState().selectedDeviceId;
       this.localStream = await captureAudio(deviceId ? { deviceId } : {});
@@ -265,7 +263,6 @@ export class VoiceApp {
       alert('Microphone access is required. Please allow microphone access and try again.');
       return;
     }
-    console.log('[AUDIO] Local stream acquired, tracks:', this.localStream.getAudioTracks().length);
     this.audioGraph = createAudioGraph(this.localStream);
     try {
       if (this.audioGraph.context.state !== 'running') {
@@ -295,30 +292,23 @@ export class VoiceApp {
     }, 100);
 
     if (this.sendTransport) {
-      console.log('[AUDIO] sendTransport already exists, producing audio now');
       await this.produceAudio();
-    } else {
-      console.log('[AUDIO] No sendTransport yet, will produce when transport_params arrives');
     }
   }
 
   private async produceAudio(): Promise<void> {
     if (this.producer) return;
     if (!this.sendTransport || !this.localStream) {
-      console.log('[AUDIO] Cannot produce: sendTransport=', !!this.sendTransport, 'localStream=', !!this.localStream);
       return;
     }
     const track =
       this.audioGraph?.outputStream.getAudioTracks()[0] ??
       this.localStream.getAudioTracks()[0];
     if (!track) {
-      console.log('[AUDIO] No audio track to produce');
       return;
     }
-    console.log('[AUDIO] Producing audio track...');
     try {
       this.producer = await this.sendTransport.produce({ track });
-      console.log('[AUDIO] Producer created, id=', this.producer.id);
       this.syncOutgoingAudioState();
     } catch (err) {
       console.error('[AUDIO] Failed to produce:', err);
@@ -333,10 +323,8 @@ export class VoiceApp {
       kind: kind as 'audio',
       rtpParameters: rtpParameters as RtpParameters,
     }).then((consumer) => {
-      console.log('[AUDIO] Consumer created, paused=', consumer.paused, 'track=', consumer.track?.kind, 'enabled=', consumer.track?.enabled, 'muted=', consumer.track?.muted);
       this.consumers.set(consumerId, consumer);
       consumer.resume();
-      console.log('[AUDIO] Client-side consumer resumed, paused=', consumer.paused);
       this.signaling.resumeConsumer(consumerId);
       if (consumer.track) {
         this.playRemoteAudio(peerId, consumer.track);
@@ -345,11 +333,6 @@ export class VoiceApp {
   }
 
   private playRemoteAudio(peerId: string, track: MediaStreamTrack): void {
-    console.log('[AUDIO] Playing remote audio for peer', peerId, 'track kind=', track.kind, 'enabled=', track.enabled, 'muted=', track.muted);
-
-    track.onmute = () => console.log('[AUDIO] Track muted for peer', peerId);
-    track.onunmute = () => console.log('[AUDIO] Track unmuted for peer', peerId);
-    track.onended = () => console.log('[AUDIO] Track ended for peer', peerId);
 
     let el = this.remoteAudioElements.get(peerId);
     if (!el) {
@@ -374,9 +357,7 @@ export class VoiceApp {
     const stream = new MediaStream([track]);
     el.srcObject = stream;
     el.muted = true;
-    console.log('[AUDIO] Calling play() for peer', peerId, 'element paused=', el.paused, 'muted=', el.muted, 'volume=', el.volume);
     el.play().then(() => {
-      console.log('[AUDIO] play() succeeded for peer', peerId);
       el!.muted = shouldBeMuted;
     }).catch((err) => {
       console.error('[AUDIO] Failed to play remote audio:', err.name, err.message);
@@ -464,17 +445,13 @@ export class VoiceApp {
         break;
       }
       case 'router_capabilities': {
-        console.log('[AUDIO] router_capabilities received');
         this.device = new Device();
         await this.device.load({ routerRtpCapabilities: msg.rtpCapabilities as RtpCapabilities });
-        console.log('[AUDIO] Device loaded, sending rtpCapabilities');
         this.signaling.sendRtpCapabilities(this.device.rtpCapabilities);
         break;
       }
       case 'transport_params': {
-        console.log('[AUDIO] transport_params received, direction=', msg.direction);
         if (!this.device) {
-          console.log('[AUDIO] No device yet, skipping transport_params');
           return;
         }
         const params = {
@@ -486,12 +463,7 @@ export class VoiceApp {
         };
         if (msg.direction === 'send') {
           this.sendTransport = this.device.createSendTransport(params);
-          console.log('[AUDIO] sendTransport created');
-          this.sendTransport.on('connectionstatechange', (state: string) => {
-            console.log('[AUDIO] sendTransport connection state:', state);
-          });
           this.sendTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
-            console.log('[AUDIO] sendTransport connect event, dtlsParameters=', typeof dtlsParameters, 'fingerprints=', Array.isArray(dtlsParameters?.fingerprints));
             const timeoutId = setTimeout(() => {
               const p = this.pendingTransportConnect.send;
               if (p) {
@@ -503,15 +475,13 @@ export class VoiceApp {
             this.signaling.connectTransport('send', dtlsParameters);
           });
           this.sendTransport.on('produce', ({ kind, rtpParameters }: { kind: MediaKind; rtpParameters: RtpParameters }, callback: (data: { id: string }) => void) => {
-            this.signaling.produce(kind as 'audio', rtpParameters);
+            if (kind === 'audio') {
+              this.signaling.produce(kind, rtpParameters);
+            }
             this.pendingProduceCallbacks.push(callback);
           });
         } else {
           this.recvTransport = this.device.createRecvTransport(params);
-          console.log('[AUDIO] recvTransport created');
-          this.recvTransport.on('connectionstatechange', (state: string) => {
-            console.log('[AUDIO] recvTransport connection state:', state);
-          });
           this.recvTransport.on('connect', ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
             const timeoutId = setTimeout(() => {
               const p = this.pendingTransportConnect.recv;
@@ -524,7 +494,6 @@ export class VoiceApp {
             this.signaling.connectTransport('recv', dtlsParameters);
           });
           if (this.pendingConsumers.length > 0) {
-            console.log('[AUDIO] Processing', this.pendingConsumers.length, 'pending consumers');
             const pending = [...this.pendingConsumers];
             this.pendingConsumers = [];
             for (const pc of pending) {
@@ -533,7 +502,6 @@ export class VoiceApp {
           }
         }
         if (this.sendTransport && this.localStream) {
-          console.log('[AUDIO] sendTransport + localStream ready, producing audio');
           this.produceAudio();
         }
         break;
@@ -565,9 +533,7 @@ export class VoiceApp {
         break;
       }
       case 'consumer_created': {
-        console.log('[AUDIO] consumer_created from peer', msg.peerId, 'consumerId=', msg.consumerId);
         if (!this.recvTransport) {
-          console.log('[AUDIO] No recvTransport yet, buffering consumer for later');
           this.pendingConsumers.push({
             consumerId: msg.consumerId,
             producerId: msg.producerId,
