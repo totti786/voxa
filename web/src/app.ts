@@ -486,13 +486,11 @@ export class VoiceApp {
       }
       case 'ownership_changed': {
         const state = this.store.getState();
-        if (msg.peer_id === state.selfPeerId) {
-          this.store.setState({ localIsOwner: true });
-        }
+        const isSelf = msg.peer_id === state.selfPeerId;
         const peers = state.peers.map((p) =>
-          p.id === msg.peer_id ? { ...p, is_owner: true } : p
+          p.id === msg.peer_id ? { ...p, is_owner: true } : { ...p, is_owner: false }
         );
-        this.store.setState({ peers });
+        this.store.setState({ peers, localIsOwner: isSelf });
         break;
       }
       case 'peer_force_muted': {

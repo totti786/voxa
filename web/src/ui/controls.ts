@@ -29,6 +29,7 @@ const ICONS = {
   headphonesOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M4 12v6a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-1"/><path d="M17 12v1"/><path d="M21 12v6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3"/></svg>',
   ptt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M12 8v4"/><path d="M9 12h6"/></svg>',
   leave: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3H6a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
 };
 
 export function renderControls(container: HTMLElement, app: VoiceApp, state: AppState): void {
@@ -58,12 +59,19 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
 
   const micPos = getPos(positions[4].angle);
   const micBtn = document.createElement('button');
-  micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
-  micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
-  micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
+  if (state.localForceMuted) {
+    micBtn.className = 'control-btn locked';
+    micBtn.innerHTML = ICONS.lock;
+    micBtn.title = 'Force muted by owner';
+    micBtn.onclick = () => {};
+  } else {
+    micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
+    micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
+    micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
+    micBtn.onclick = () => app.setMute(!state.localMuted);
+  }
   micBtn.style.left = `${micPos.left}px`;
   micBtn.style.top = `${micPos.top}px`;
-  micBtn.onclick = () => app.setMute(!state.localMuted);
   container.appendChild(micBtn);
 
   const deafenPos = getPos(positions[1].angle);

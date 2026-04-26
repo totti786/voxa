@@ -80,11 +80,35 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       .slice(0, 2)
       .toUpperCase();
 
+    const state = app.store.getState();
+    const isLocalOwner = state.localIsOwner;
+    const isSelf = peer.id === state.selfPeerId;
+
+    const crownSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z"/><path d="M5 16h14v3H5z"/></svg>`;
+    const lockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+    const kickIconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>`;
+    const muteIconSvg = peer.force_muted
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v6a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
+
+    let adminButtonsHtml = '';
+    if (isLocalOwner && !isSelf) {
+      adminButtonsHtml = `
+        <div class="admin-actions">
+          <button class="admin-btn admin-kick" title="Kick">${kickIconSvg}</button>
+          <button class="admin-btn admin-mute" title="${peer.force_muted ? 'Unmute' : 'Force mute'}">${muteIconSvg}</button>
+        </div>
+      `;
+    }
+
     orb.innerHTML = `
       <span class="peer-initials">${initials}</span>
+      ${peer.is_owner ? `<span class="orb-badge orb-crown">${crownSvg}</span>` : ''}
+      ${peer.force_muted ? `<span class="orb-badge orb-lock">${lockSvg}</span>` : ''}
       <span class="peer-status"></span>
       <span class="volume-tooltip">
         <span class="tooltip-name">${escapeHtml(peer.display_name)}</span>
+        ${adminButtonsHtml}
         <input type="range" class="peer-volume-slider" min="0" max="200" value="${Math.round((app.peerVolumes.get(peer.id) ?? 1) * 100)}">
       </span>
     `;
@@ -97,6 +121,23 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       app.setPeerVolume(peer.id, val);
     };
     attachWheel(volSlider, 5);
+
+    if (isLocalOwner && !isSelf) {
+      const kickBtn = orb.querySelector('.admin-kick');
+      if (kickBtn) {
+        kickBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          app.kickPeer(peer.id);
+        });
+      }
+      const muteBtn = orb.querySelector('.admin-mute');
+      if (muteBtn) {
+        muteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          app.forceMutePeer(peer.id, !peer.force_muted);
+        });
+      }
+    }
 
     let isDragging = false;
 
