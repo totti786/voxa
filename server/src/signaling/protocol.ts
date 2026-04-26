@@ -87,6 +87,12 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
       const trimmed = msg.text.trim();
       if (!trimmed || trimmed.length > 500) return null;
       return { type: 'chat', text: trimmed };
+    case 'kick_peer':
+      if (typeof msg.peer_id !== 'string') return null;
+      return { type: 'kick_peer', peer_id: msg.peer_id };
+    case 'force_mute':
+      if (typeof msg.peer_id !== 'string' || typeof msg.muted !== 'boolean') return null;
+      return { type: 'force_mute', peer_id: msg.peer_id, muted: msg.muted };
     case 'leave':
       return { type: 'leave' };
     default:
