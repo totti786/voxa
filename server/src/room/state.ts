@@ -5,7 +5,9 @@ export interface Peer {
   id: string;
   displayName: string;
   muted: boolean;
+  forceMuted?: boolean;
   wsId: string;
+  joinedAt: Date;
   sendTransport?: WebRtcTransport;
   recvTransport?: WebRtcTransport;
   producer?: Producer;
@@ -19,6 +21,8 @@ export interface Room {
   maxUsers: number;
   peers: Map<string, Peer>;
   createdAt: Date;
+  ownerPeerId: string | null;
+  bannedUntil: Map<string, number>;
 }
 
 class RoomState {
@@ -35,6 +39,8 @@ class RoomState {
       maxUsers,
       peers: new Map(),
       createdAt: new Date(),
+      ownerPeerId: null,
+      bannedUntil: new Map(),
     };
     this.rooms.set(id, room);
     return room;
@@ -82,12 +88,14 @@ class RoomState {
     return true;
   }
 
-  toPeerInfo(peer: Peer): PeerInfo {
+  toPeerInfo(peer: Peer, room?: Room): PeerInfo {
     return {
       id: peer.id,
       display_name: peer.displayName,
       muted: peer.muted,
       speaking: false,
+      is_owner: room ? room.ownerPeerId === peer.id : false,
+      force_muted: peer.forceMuted || false,
     };
   }
 
@@ -102,6 +110,51 @@ class RoomState {
       hasPassword: !!room.password,
       maxUsers: room.maxUsers,
     }));
+  }
+
+  setOwner(roomId: string, peerId: string): boolean {
+    const room = this.rooms.get(roomId);
+    if (!room) return false;
+    room.ownerPeerId = peerId;
+    return true;
+  }
+
+  getLongestTenurePeer(roomId: string): Peer | undefined {
+    const room = this.rooms.get(roomId);
+    if (!room) return undefined;
+    let oldest: Peer | undefined;
+    for (const peer of room.peers.values()) {
+      if (!oldest || peer.joinedAt < oldest.joinedAt) {
+        oldest = peer;
+      }
+    }
+    return oldest;
+  }
+
+  banPeer(roomId: string, peerId: string, durationMs: number): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    room.bannedUntil.set(peerId, Date.now() + durationMs);
+  }
+
+  isBanned(roomId: string, peerId: string): boolean {
+    const room = this.rooms.get(roomId);
+    if (!room) return false;
+    const until = room.bannedUntil.get(peerId);
+    if (!until) return false;
+    if (Date.now() >= until) {
+      room.bannedUntil.delete(peerId);
+      return false;
+    }
+    return true;
+  }
+
+  clearForceMutedFlags(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    for (const peer of room.peers.values()) {
+      peer.forceMuted = false;
+    }
   }
 }
 
