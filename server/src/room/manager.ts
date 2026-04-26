@@ -29,6 +29,7 @@ export function joinRoom(
     displayName,
     muted: false,
     wsId,
+    joinedAt: new Date(),
     consumers: new Map(),
   };
 
