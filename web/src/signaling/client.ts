@@ -183,4 +183,12 @@ export class SignalingClient {
   sendChat(text: string): void {
     this.send({ type: 'chat', text });
   }
+
+  kickPeer(peerId: string): void {
+    this.send({ type: 'kick_peer', peer_id: peerId });
+  }
+
+  forceMute(peerId: string, muted: boolean): void {
+    this.send({ type: 'force_mute', peer_id: peerId, muted });
+  }
 }
