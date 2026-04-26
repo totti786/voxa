@@ -69,6 +69,17 @@ export interface ClientChatMessage extends SignalingMessage {
   text: string;
 }
 
+export interface KickPeerMessage extends SignalingMessage {
+  type: 'kick_peer';
+  peer_id: string;
+}
+
+export interface ForceMuteMessage extends SignalingMessage {
+  type: 'force_mute';
+  peer_id: string;
+  muted: boolean;
+}
+
 export type ClientMessage =
   | JoinMessage
   | OfferMessage
@@ -80,13 +91,17 @@ export type ClientMessage =
   | ProduceMessage
   | ClientRtpCapabilitiesMessage
   | ResumeConsumerMessage
-  | ClientChatMessage;
+  | ClientChatMessage
+  | KickPeerMessage
+  | ForceMuteMessage;
 
 export interface PeerInfo {
   id: string;
   display_name: string;
   muted: boolean;
   speaking: boolean;
+  is_owner?: boolean;
+  force_muted?: boolean;
 }
 
 export interface JoinedMessage extends SignalingMessage {
@@ -179,6 +194,22 @@ export interface ProducerClosedMessage extends SignalingMessage {
   peerId: string;
 }
 
+export interface PeerForceMutedMessage extends SignalingMessage {
+  type: 'peer_force_muted';
+  peer_id: string;
+  muted: boolean;
+}
+
+export interface OwnershipChangedMessage extends SignalingMessage {
+  type: 'ownership_changed';
+  peer_id: string;
+}
+
+export interface KickedMessage extends SignalingMessage {
+  type: 'kicked';
+  reason: string;
+}
+
 export type ServerMessage =
   | JoinedMessage
   | PeerJoinedMessage
@@ -195,7 +226,10 @@ export type ServerMessage =
   | TransportConnectedMessage
   | TransportFailedMessage
   | ProducerClosedMessage
-  | ChatMessage;
+  | ChatMessage
+  | PeerForceMutedMessage
+  | OwnershipChangedMessage
+  | KickedMessage;
 
 export interface RoomSummary {
   id: string;
