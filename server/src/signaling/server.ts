@@ -154,6 +154,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       send(ws, {
         type: 'joined',
         peers: result.peers || [],
+        self_peer_id: ctx.peerId,
       });
 
       broadcast(ctx.roomId, { type: 'peer_joined', peer: roomState.toPeerInfo(roomState.getPeer(ctx.roomId, ctx.peerId)!) }, ctx.peerId);
@@ -180,6 +181,28 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
     case 'speaking': {
       if (ctx.roomId) {
         broadcast(ctx.roomId, { type: 'peer_speaking', peer_id: ctx.peerId, speaking: msg.speaking });
+      }
+      break;
+    }
+    case 'kick_peer': {
+      if (!ctx.roomId) { send(ws, { type: 'error', message: 'not_in_room' }); return; }
+      const room = roomState.getRoom(ctx.roomId);
+      if (!room || room.ownerPeerId !== ctx.peerId) { send(ws, { type: 'error', message: 'not_owner' }); return; }
+      const targetWs = findClientByPeerId(msg.peer_id)?.ws;
+      if (targetWs) {
+        send(targetWs, { type: 'kicked', reason: 'kicked_by_owner' });
+        targetWs.close(1008, 'kicked');
+      }
+      kickPeer(ctx.roomId, msg.peer_id);
+      break;
+    }
+    case 'force_mute': {
+      if (!ctx.roomId) { send(ws, { type: 'error', message: 'not_in_room' }); return; }
+      const room = roomState.getRoom(ctx.roomId);
+      if (!room || room.ownerPeerId !== ctx.peerId) { send(ws, { type: 'error', message: 'not_owner' }); return; }
+      if (forceMutePeer(ctx.roomId, msg.peer_id, msg.muted)) {
+        broadcast(ctx.roomId, { type: 'peer_force_muted', peer_id: msg.peer_id, muted: msg.muted });
+        broadcast(ctx.roomId, { type: 'peer_mute', peer_id: msg.peer_id, muted: msg.muted });
       }
       break;
     }
@@ -325,6 +348,14 @@ function handlePeerLeave(roomId: string, peerId: string): void {
   }
 
   const room = roomState.getRoom(roomId);
+  if (room && room.ownerPeerId === peerId) {
+    const nextOwner = roomState.getLongestTenurePeer(roomId);
+    if (nextOwner) {
+      transferOwnership(roomId, nextOwner.id);
+      broadcast(roomId, { type: 'ownership_changed', peer_id: nextOwner.id });
+    }
+  }
+
   const isLastPeer = room ? room.peers.size === 1 && room.peers.has(peerId) : false;
 
   leaveRoom(roomId, peerId);
