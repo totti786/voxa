@@ -264,6 +264,18 @@ export class VoiceApp {
     }
   }
 
+  togglePtt(): void {
+    const state = this.store.getState();
+    const next = !state.pttEnabled;
+    if (!next && state.pttActive) {
+      // Disabling PTT while actively holding: clear speaking state
+      this.store.setState({ localSpeaking: false });
+      this.signaling.setSpeaking(false);
+    }
+    this.store.setState({ pttEnabled: next, pttActive: false });
+    this.syncOutgoingAudioState();
+  }
+
   setPttActive(active: boolean): void {
     const state = this.store.getState();
     if (!active && state.pttEnabled && state.localSpeaking) {

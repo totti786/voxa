@@ -115,7 +115,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
   pttBtn.style.left = `${pttPos.left}px`;
   pttBtn.style.top = `${pttPos.top}px`;
-  pttBtn.onclick = () => app.store.setState({ pttEnabled: !state.pttEnabled });
+  pttBtn.onclick = () => app.togglePtt();
   container.appendChild(pttBtn);
 
   const leavePos = getPos(positions[0].angle);
