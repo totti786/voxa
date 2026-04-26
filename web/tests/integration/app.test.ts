@@ -98,7 +98,7 @@ describe('VoiceApp integration', () => {
     expect(produce).toHaveBeenCalledWith({ track: processedTrack });
   });
 
-  it('forces relay ICE policy when creating mediasoup transports', async () => {
+  it('creates mediasoup transports without forcing relay ICE', async () => {
     const app = new VoiceApp('ws://test/ws');
     const createSendTransport = vi.fn().mockReturnValue({
       on: vi.fn(),
@@ -120,7 +120,7 @@ describe('VoiceApp integration', () => {
     });
 
     expect(createSendTransport).toHaveBeenCalledWith(
-      expect.objectContaining({ iceTransportPolicy: 'relay' })
+      expect.not.objectContaining({ iceTransportPolicy: 'relay' })
     );
   });
 });
