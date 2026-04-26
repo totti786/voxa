@@ -1,10 +1,11 @@
 import { roomState } from './state.js';
 import type { Peer } from './state.js';
+import type { PeerInfo } from '../types.js';
 
 export interface JoinResult {
   success: boolean;
   error?: string;
-  peers?: Array<{ id: string; display_name: string; muted: boolean; speaking: boolean }>;
+  peers?: PeerInfo[];
 }
 
 export function joinRoom(
@@ -18,6 +19,10 @@ export function joinRoom(
 
   if (!room) {
     room = roomState.createRoom(roomId);
+  }
+
+  if (roomState.isBanned(roomId, peerId)) {
+    return { success: false, error: 'banned' };
   }
 
   if (room.password && room.password !== password) {
@@ -38,10 +43,14 @@ export function joinRoom(
     return { success: false, error: 'room_full' };
   }
 
+  if (room.ownerPeerId === null) {
+    roomState.setOwner(roomId, peerId);
+  }
+
   const peers = roomState
     .getPeers(roomId)
     .filter((p) => p.id !== peerId)
-    .map((p) => roomState.toPeerInfo(p));
+    .map((p) => roomState.toPeerInfo(p, room));
 
   return { success: true, peers };
 }
@@ -52,4 +61,21 @@ export function leaveRoom(roomId: string, peerId: string): boolean {
 
 export function setMute(roomId: string, peerId: string, muted: boolean): boolean {
   return roomState.setPeerMute(roomId, peerId, muted);
+}
+
+export function transferOwnership(roomId: string, peerId: string): boolean {
+  return roomState.setOwner(roomId, peerId);
+}
+
+export function kickPeer(roomId: string, peerId: string): boolean {
+  roomState.banPeer(roomId, peerId, 5 * 60 * 1000);
+  return true;
+}
+
+export function forceMutePeer(roomId: string, peerId: string, muted: boolean): boolean {
+  const peer = roomState.getPeer(roomId, peerId);
+  if (!peer) return false;
+  peer.forceMuted = muted;
+  peer.muted = muted;
+  return true;
 }

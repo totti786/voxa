@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { validateClientMessage, encodeServerMessage } from './protocol.js';
 import type { Router } from 'mediasoup/types';
-import { joinRoom, leaveRoom, setMute } from '../room/manager.js';
+import { joinRoom, leaveRoom, setMute, transferOwnership, kickPeer, forceMutePeer } from '../room/manager.js';
 import { roomState } from '../room/state.js';
 import { createRouter, getRouter } from '../sfu/router.js';
 import { createPeerTransports } from '../sfu/peer.js';
@@ -102,6 +102,11 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       }
       ctx.roomId = msg.room;
 
+      const room = roomState.getRoom(msg.room);
+      if (room && room.ownerPeerId === ctx.peerId) {
+        send(ws, { type: 'ownership_changed', peer_id: ctx.peerId });
+      }
+
       let router = getRouter(msg.room);
       if (!router) {
         let lock = routerLocks.get(msg.room);
@@ -162,10 +167,14 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       break;
     }
     case 'mute': {
-      if (ctx.roomId) {
-        setMute(ctx.roomId, ctx.peerId, msg.muted);
-        broadcast(ctx.roomId, { type: 'peer_mute', peer_id: ctx.peerId, muted: msg.muted });
+      if (!ctx.roomId) break;
+      const peer = roomState.getPeer(ctx.roomId, ctx.peerId);
+      if (peer && peer.forceMuted && !msg.muted) {
+        send(ws, { type: 'error', message: 'force_muted' });
+        return;
       }
+      setMute(ctx.roomId, ctx.peerId, msg.muted);
+      broadcast(ctx.roomId, { type: 'peer_mute', peer_id: ctx.peerId, muted: msg.muted });
       break;
     }
     case 'speaking': {
