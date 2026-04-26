@@ -146,10 +146,12 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
         iceServers,
       });
 
+      const room = roomState.getRoom(msg.room);
       send(ws, {
         type: 'joined',
         peers: result.peers || [],
         self_peer_id: ctx.peerId,
+        is_owner: room ? room.ownerPeerId === ctx.peerId : false,
       });
 
       broadcast(ctx.roomId, { type: 'peer_joined', peer: roomState.toPeerInfo(roomState.getPeer(ctx.roomId, ctx.peerId)!) }, ctx.peerId);

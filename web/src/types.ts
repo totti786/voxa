@@ -108,6 +108,7 @@ export interface JoinedMessage extends SignalingMessage {
   type: 'joined';
   peers: PeerInfo[];
   self_peer_id: string;
+  is_owner: boolean;
 }
 
 export interface PeerJoinedMessage extends SignalingMessage {

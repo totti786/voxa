@@ -446,12 +446,10 @@ export class VoiceApp {
   private async handleServerMessage(msg: ServerMessage): Promise<void> {
     switch (msg.type) {
       case 'joined': {
-        const selfPeerId = msg.self_peer_id;
-        const selfPeer = msg.peers.find((p) => p.id === selfPeerId);
         this.store.setState({
           peers: msg.peers,
-          selfPeerId,
-          localIsOwner: selfPeer?.is_owner ?? false,
+          selfPeerId: msg.self_peer_id,
+          localIsOwner: msg.is_owner,
         });
         this.setupLocalAudio();
         break;
