@@ -107,6 +107,7 @@ export interface PeerInfo {
 export interface JoinedMessage extends SignalingMessage {
   type: 'joined';
   peers: PeerInfo[];
+  self_peer_id: string;
 }
 
 export interface PeerJoinedMessage extends SignalingMessage {

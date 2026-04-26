@@ -27,6 +27,9 @@ export interface AppState {
   joinError: string | null;
   selectedDeviceId: string | null;
   messages: ChatMessage[];
+  selfPeerId: string | null;
+  localIsOwner: boolean;
+  localForceMuted: boolean;
 }
 
 export function createAppState(): Store<AppState> {
@@ -50,6 +53,9 @@ export function createAppState(): Store<AppState> {
     joinError: null,
     selectedDeviceId: null,
     messages: [],
+    selfPeerId: null,
+    localIsOwner: false,
+    localForceMuted: false,
   });
 }
 
@@ -162,7 +168,7 @@ export class VoiceApp {
     this.signaling.leave();
     this.signaling.flushAndDisconnect();
     this.cleanupCall();
-    this.store.setState({ roomId: null, peers: [], connected: false, messages: [] });
+    this.store.setState({ roomId: null, peers: [], connected: false, messages: [], selfPeerId: null, localIsOwner: false, localForceMuted: false });
   }
 
   sendChat(text: string): void {
@@ -180,9 +186,20 @@ export class VoiceApp {
   }
 
   setMute(muted: boolean): void {
+    if (!muted && this.store.getState().localForceMuted) {
+      return;
+    }
     this.store.setState({ localMuted: muted });
     this.signaling.setMute(muted);
     this.syncOutgoingAudioState();
+  }
+
+  kickPeer(peerId: string): void {
+    this.signaling.kickPeer(peerId);
+  }
+
+  forceMutePeer(peerId: string, muted: boolean): void {
+    this.signaling.forceMute(peerId, muted);
   }
 
   setDeafen(deafened: boolean): void {
@@ -429,7 +446,13 @@ export class VoiceApp {
   private async handleServerMessage(msg: ServerMessage): Promise<void> {
     switch (msg.type) {
       case 'joined': {
-        this.store.setState({ peers: msg.peers });
+        const selfPeerId = msg.self_peer_id;
+        const selfPeer = msg.peers.find((p) => p.id === selfPeerId);
+        this.store.setState({
+          peers: msg.peers,
+          selfPeerId,
+          localIsOwner: selfPeer?.is_owner ?? false,
+        });
         this.setupLocalAudio();
         break;
       }
@@ -459,6 +482,40 @@ export class VoiceApp {
           p.id === msg.peer_id ? { ...p, speaking: msg.speaking } : p
         );
         this.store.setState({ peers });
+        break;
+      }
+      case 'ownership_changed': {
+        const state = this.store.getState();
+        if (msg.peer_id === state.selfPeerId) {
+          this.store.setState({ localIsOwner: true });
+        }
+        const peers = state.peers.map((p) =>
+          p.id === msg.peer_id ? { ...p, is_owner: true } : p
+        );
+        this.store.setState({ peers });
+        break;
+      }
+      case 'peer_force_muted': {
+        const state = this.store.getState();
+        const isSelf = msg.peer_id === state.selfPeerId;
+        const peers = state.peers.map((p) =>
+          p.id === msg.peer_id ? { ...p, force_muted: msg.muted } : p
+        );
+        if (isSelf) {
+          this.store.setState({
+            peers,
+            localForceMuted: msg.muted,
+            localMuted: msg.muted,
+          });
+          this.syncOutgoingAudioState();
+        } else {
+          this.store.setState({ peers });
+        }
+        break;
+      }
+      case 'kicked': {
+        this.leave();
+        this.store.setState({ joinError: 'You were kicked from the room.' });
         break;
       }
       case 'router_capabilities': {
