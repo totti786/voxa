@@ -227,6 +227,27 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       }
       send(ws, { type: 'producer_created', producerId });
 
+      const producerPeer = roomState.getPeer(ctx.roomId, ctx.peerId);
+      if (producerPeer && producerPeer.producer) {
+        producerPeer.producer.on('@close', () => {
+          if (!ctx.roomId) return;
+          const stillHere = roomState.getPeer(ctx.roomId, ctx.peerId);
+          if (!stillHere) return;
+          broadcast(ctx.roomId, { type: 'producer_closed', producerId, peerId: ctx.peerId }, ctx.peerId);
+          const otherPeers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId);
+          for (const otherPeer of otherPeers) {
+            if (otherPeer.consumers) {
+              for (const [consumerId, consumer] of otherPeer.consumers) {
+                if (consumer.appData && (consumer.appData as Record<string, unknown>).producerPeerId === ctx.peerId) {
+                  consumer.close();
+                  otherPeer.consumers.delete(consumerId);
+                }
+              }
+            }
+          }
+        });
+      }
+
       const peers = roomState.getPeers(ctx.roomId).filter((p) => p.id !== ctx.peerId);
       for (const otherPeer of peers) {
         await createConsumersForPeer(ctx.roomId, otherPeer.id);

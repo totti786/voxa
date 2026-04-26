@@ -1,6 +1,27 @@
 import type { PeerInfo } from '../types.js';
 import type { VoiceApp } from '../app.js';
 
+function setSliderValue(el: HTMLInputElement, value: number): void {
+  el.value = String(value);
+  const min = parseFloat(el.min) || 0;
+  const max = parseFloat(el.max) || 100;
+  const pct = ((value - min) / (max - min)) * 100;
+  el.style.setProperty('--value', `${pct}%`);
+}
+
+function attachWheel(el: HTMLInputElement, step = 1): void {
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY) * -step;
+    const min = parseFloat(el.min) || 0;
+    const max = parseFloat(el.max) || 100;
+    let val = parseFloat(el.value) + delta;
+    val = Math.max(min, Math.min(max, val));
+    setSliderValue(el, val);
+    el.dispatchEvent(new Event('input'));
+  }, { passive: false });
+}
+
 function getOrbAnglesKey(roomId: string): string {
   return `voxa-orb-pos:${roomId}`;
 }
@@ -69,10 +90,13 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     `;
 
     const volSlider = orb.querySelector('.peer-volume-slider') as HTMLInputElement;
+    setSliderValue(volSlider, (app.peerVolumes.get(peer.id) ?? 1) * 100);
     volSlider.oninput = (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+      setSliderValue(volSlider, val * 100);
       app.setPeerVolume(peer.id, val);
     };
+    attachWheel(volSlider, 5);
 
     let isDragging = false;
 

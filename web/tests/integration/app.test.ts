@@ -75,6 +75,26 @@ describe('VoiceApp integration', () => {
     expect(producer.paused).toBe(false);
   });
 
+  it('clears speaking state when push-to-talk is released', () => {
+    const app = new VoiceApp('ws://test/ws');
+    const setSpeaking = vi.spyOn(app.signaling, 'setSpeaking');
+    app.store.setState({ pttEnabled: true, localSpeaking: true });
+
+    app.setPttActive(false);
+    expect(app.store.getState().localSpeaking).toBe(false);
+    expect(setSpeaking).toHaveBeenCalledWith(false);
+  });
+
+  it('does not clear speaking state on PTT release when PTT is disabled', () => {
+    const app = new VoiceApp('ws://test/ws');
+    const setSpeaking = vi.spyOn(app.signaling, 'setSpeaking');
+    app.store.setState({ pttEnabled: false, localSpeaking: true });
+
+    app.setPttActive(false);
+    expect(app.store.getState().localSpeaking).toBe(true);
+    expect(setSpeaking).not.toHaveBeenCalled();
+  });
+
   it('produces the processed audio track when an audio graph is available', async () => {
     const app = new VoiceApp('ws://test/ws');
     const rawTrack = { id: 'raw-track' } as MediaStreamTrack;

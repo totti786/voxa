@@ -248,6 +248,11 @@ export class VoiceApp {
   }
 
   setPttActive(active: boolean): void {
+    const state = this.store.getState();
+    if (!active && state.pttEnabled && state.localSpeaking) {
+      this.store.setState({ localSpeaking: false });
+      this.signaling.setSpeaking(false);
+    }
     this.store.setState({ pttActive: active });
     this.syncOutgoingAudioState();
   }
@@ -291,8 +296,10 @@ export class VoiceApp {
 
     this.vadInterval = setInterval(() => {
       if (!this.vad || this.store.getState().localMuted) return;
+      const state = this.store.getState();
+      if (state.pttEnabled && !state.pttActive) return;
       const speaking = this.vad.analyze();
-      if (speaking !== this.store.getState().localSpeaking) {
+      if (speaking !== state.localSpeaking) {
         this.store.setState({ localSpeaking: speaking });
         this.signaling.setSpeaking(speaking);
       }

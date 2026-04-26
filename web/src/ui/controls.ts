@@ -1,6 +1,27 @@
 import type { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
 
+function setSliderValue(el: HTMLInputElement, value: number): void {
+  el.value = String(value);
+  const min = parseFloat(el.min) || 0;
+  const max = parseFloat(el.max) || 100;
+  const pct = ((value - min) / (max - min)) * 100;
+  el.style.setProperty('--value', `${pct}%`);
+}
+
+function attachWheel(el: HTMLInputElement, step = 1): void {
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY) * -step;
+    const min = parseFloat(el.min) || 0;
+    const max = parseFloat(el.max) || 100;
+    let val = parseFloat(el.value) + delta;
+    val = Math.max(min, Math.min(max, val));
+    setSliderValue(el, val);
+    el.dispatchEvent(new Event('input'));
+  }, { passive: false });
+}
+
 const ICONS = {
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
   micOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v1a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
@@ -68,11 +89,13 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   gainSlider.type = 'range';
   gainSlider.min = '0';
   gainSlider.max = '200';
-  gainSlider.value = String(state.inputGain * 100);
+  setSliderValue(gainSlider, state.inputGain * 100);
   gainSlider.oninput = (e) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+    setSliderValue(gainSlider, val * 100);
     app.setInputGain(val);
   };
+  attachWheel(gainSlider, 5);
 
   gainWrap.append(gainLabel, gainSlider);
   container.appendChild(gainWrap);
@@ -108,11 +131,13 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   outputVolSlider.type = 'range';
   outputVolSlider.min = '0';
   outputVolSlider.max = '200';
-  outputVolSlider.value = String(state.outputVolume * 100);
+  setSliderValue(outputVolSlider, state.outputVolume * 100);
   outputVolSlider.oninput = (e) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+    setSliderValue(outputVolSlider, val * 100);
     app.setOutputVolume(val);
   };
+  attachWheel(outputVolSlider, 5);
   outputVolWrap.append(outputVolLabel, outputVolSlider);
   extras.appendChild(outputVolWrap);
 
@@ -124,11 +149,13 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   gateSlider.type = 'range';
   gateSlider.min = '-70';
   gateSlider.max = '-20';
-  gateSlider.value = String(state.noiseGateThreshold);
+  setSliderValue(gateSlider, state.noiseGateThreshold);
   gateSlider.oninput = (e) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10);
+    setSliderValue(gateSlider, val);
     app.setNoiseGateThreshold(val);
   };
+  attachWheel(gateSlider, 2);
   gateWrap.append(gateLabel, gateSlider);
   extras.appendChild(gateWrap);
 
