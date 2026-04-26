@@ -102,11 +102,6 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       }
       ctx.roomId = msg.room;
 
-      const room = roomState.getRoom(msg.room);
-      if (room && room.ownerPeerId === ctx.peerId) {
-        send(ws, { type: 'ownership_changed', peer_id: ctx.peerId });
-      }
-
       let router = getRouter(msg.room);
       if (!router) {
         let lock = routerLocks.get(msg.room);
