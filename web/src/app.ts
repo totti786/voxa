@@ -629,7 +629,7 @@ export class VoiceApp {
           }
         }
         if (this.sendTransport && this.localStream) {
-          this.produceAudio();
+          await this.produceAudio();
         }
         break;
       }
