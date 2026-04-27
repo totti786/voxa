@@ -673,6 +673,15 @@ body {
   min-width: 120px;
 }
 
+.volume-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
 .peer-orb:hover .volume-tooltip {
   opacity: 1;
   pointer-events: auto;

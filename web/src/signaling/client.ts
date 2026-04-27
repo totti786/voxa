@@ -52,6 +52,12 @@ export class SignalingClient {
       } else {
         data = String(event.data);
       }
+      try {
+        const parsed = JSON.parse(data);
+        console.log('[WS] ←', parsed.type || 'unknown', parsed);
+      } catch {
+        console.log('[WS] ← raw:', data);
+      }
       this.enqueueMessage(data);
     };
 
@@ -125,6 +131,7 @@ export class SignalingClient {
   }
 
   send(msg: ClientMessage): void {
+    console.log('[WS] →', msg.type, msg);
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     } else {

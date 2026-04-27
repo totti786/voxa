@@ -188,7 +188,7 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       const targetWs = findClientByPeerId(msg.peer_id)?.ws;
       if (targetWs) {
         send(targetWs, { type: 'kicked', reason: 'kicked_by_owner' });
-        targetWs.close(1008, 'kicked');
+        setTimeout(() => targetWs.close(1008, 'kicked'), 100);
       }
       kickPeer(ctx.roomId, msg.peer_id);
       break;
