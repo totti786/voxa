@@ -165,10 +165,10 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     }
 
     let isDragging = false;
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchStartTime = 0;
-    let touchHasDragged = false;
+    let dragHasMoved = false;
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let pointerStartTime = 0;
 
     function isInsideTooltip(e: PointerEvent): boolean {
       return !!(e.target as HTMLElement).closest('.volume-tooltip');
@@ -176,23 +176,17 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
 
     orb.addEventListener('pointerdown', (e) => {
       if (isInsideTooltip(e)) return;
-      if (e.pointerType === 'touch') {
-        touchStartX = e.clientX;
-        touchStartY = e.clientY;
-        touchStartTime = Date.now();
-        touchHasDragged = false;
-      } else {
-        isDragging = true;
-        orb.setPointerCapture(e.pointerId);
-        orb.classList.add('dragging');
-      }
+      pointerStartX = e.clientX;
+      pointerStartY = e.clientY;
+      pointerStartTime = Date.now();
+      dragHasMoved = false;
     });
 
     orb.addEventListener('pointermove', (e) => {
-      if (e.pointerType === 'touch' && !isDragging) {
-        const moveDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+      if (!dragHasMoved && !isDragging) {
+        const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
         if (moveDist > 6) {
-          touchHasDragged = true;
+          dragHasMoved = true;
           isDragging = true;
           orb.setPointerCapture(e.pointerId);
           orb.classList.add('dragging');
@@ -214,9 +208,9 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     });
 
     orb.addEventListener('pointerup', (e) => {
-      if (e.pointerType === 'touch' && !isDragging) {
-        const elapsed = Date.now() - touchStartTime;
-        const moveDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+      if (!isDragging) {
+        const elapsed = Date.now() - pointerStartTime;
+        const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
         if (elapsed < 350 && moveDist < 10) {
           const isVisible = orb.classList.contains('tooltip-visible');
           container.querySelectorAll('.peer-orb.tooltip-visible').forEach((o) => {
@@ -226,8 +220,8 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
         }
         return;
       }
-      if (!isDragging) return;
       isDragging = false;
+      dragHasMoved = false;
       orb.classList.remove('dragging');
       saveOrbAngles(roomId, storedAngles);
     });
@@ -236,6 +230,7 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       if (e.pointerType === 'touch') return;
       if (!isDragging) return;
       isDragging = false;
+      dragHasMoved = false;
       orb.classList.remove('dragging');
       saveOrbAngles(roomId, storedAngles);
     });

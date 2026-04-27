@@ -763,9 +763,10 @@ body {
   content: '';
   position: absolute;
   top: 100%;
-  left: 0;
-  right: 0;
-  height: 10px;
+  left: -20px;
+  right: -20px;
+  height: 20px;
+  pointer-events: auto;
 }
 
 .peer-orb:hover .volume-tooltip,
