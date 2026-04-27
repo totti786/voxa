@@ -483,13 +483,19 @@ export class VoiceApp {
       case 'peer_joined': {
         const peers = this.store.getState().peers;
         if (!peers.find((p) => p.id === msg.peer.id)) {
-          this.store.setState({ peers: [...peers, msg.peer] });
+          this.store.setState({
+            peers: [...peers, msg.peer],
+            messages: [...this.store.getState().messages, { type: 'system', event: 'peer_joined', peer_id: msg.peer.id, timestamp: Date.now() }],
+          });
         }
         break;
       }
       case 'peer_left': {
         const peers = this.store.getState().peers.filter((p) => p.id !== msg.peer_id);
-        this.store.setState({ peers });
+        this.store.setState({
+          peers,
+          messages: [...this.store.getState().messages, { type: 'system', event: 'peer_left', peer_id: msg.peer_id, timestamp: Date.now() }],
+        });
         this.remoteAudioElements.get(msg.peer_id)?.remove();
         this.remoteAudioElements.delete(msg.peer_id);
         break;
@@ -498,7 +504,10 @@ export class VoiceApp {
         const peers = this.store.getState().peers.map((p) =>
           p.id === msg.peer_id ? { ...p, muted: msg.muted } : p
         );
-        this.store.setState({ peers });
+        this.store.setState({
+          peers,
+          messages: [...this.store.getState().messages, { type: 'system', event: 'peer_mute', peer_id: msg.peer_id, timestamp: Date.now() }],
+        });
         break;
       }
       case 'peer_speaking': {
@@ -514,7 +523,11 @@ export class VoiceApp {
         const peers = state.peers.map((p) =>
           p.id === msg.peer_id ? { ...p, is_owner: true } : { ...p, is_owner: false }
         );
-        this.store.setState({ peers, localIsOwner: isSelf });
+        this.store.setState({
+          peers,
+          localIsOwner: isSelf,
+          messages: [...this.store.getState().messages, { type: 'system', event: 'ownership_changed', peer_id: msg.peer_id, timestamp: Date.now() }],
+        });
         break;
       }
       case 'peer_force_muted': {
@@ -528,14 +541,21 @@ export class VoiceApp {
             peers,
             localForceMuted: msg.muted,
             localMuted: msg.muted,
+            messages: [...this.store.getState().messages, { type: 'system', event: 'peer_force_muted', peer_id: msg.peer_id, timestamp: Date.now() }],
           });
           this.syncOutgoingAudioState();
         } else {
-          this.store.setState({ peers });
+          this.store.setState({
+            peers,
+            messages: [...this.store.getState().messages, { type: 'system', event: 'peer_force_muted', peer_id: msg.peer_id, timestamp: Date.now() }],
+          });
         }
         break;
       }
       case 'kicked': {
+        this.store.setState({
+          messages: [...this.store.getState().messages, { type: 'system', event: 'kicked', peer_id: this.store.getState().selfPeerId ?? '', timestamp: Date.now() }],
+        });
         this.leave();
         this.store.setState({ joinError: 'You were kicked from the room.' });
         break;
