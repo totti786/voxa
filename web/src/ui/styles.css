@@ -611,7 +611,6 @@ body {
   box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   border: 3px solid var(--bg-surface);
-  margin-top: -7px;
 }
 
 .control-slider input[type="range"]::-moz-range-thumb {
@@ -711,7 +710,7 @@ body {
 .peer-volume-slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 100px;
+  width: 140px;
   height: 14px;
   border-radius: 8px;
   background: linear-gradient(90deg, var(--accent-amber) 0%, var(--accent-amber) var(--value, 0%), var(--border-subtle) var(--value, 0%));
