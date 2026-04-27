@@ -963,15 +963,17 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 32px;
   width: 100%;
   max-width: 1200px;
 }
 
 .chat-wrap {
   position: relative;
+  z-index: 5;
   width: min(400px, 90vw);
   max-width: 400px;
+  padding-bottom: 16px;
 }
 
 .chat-bar {
