@@ -62,6 +62,22 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     }
   }
 
+  let cachedCx = 0;
+  let cachedCy = 0;
+  function updateCachedRect(): void {
+    const rect = container.getBoundingClientRect();
+    cachedCx = rect.left + rect.width / 2;
+    cachedCy = rect.top + rect.height / 2;
+  }
+  updateCachedRect();
+
+  const prevResizer = (container as any).__rectResizer as EventListener | undefined;
+  if (prevResizer) {
+    window.removeEventListener('resize', prevResizer);
+  }
+  window.addEventListener('resize', updateCachedRect);
+  (container as any).__rectResizer = updateCachedRect;
+
   peers.forEach((peer, index) => {
     let angle = storedAngles.get(peer.id);
     if (angle === undefined) {
@@ -178,9 +194,8 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
         }
       }
       if (!isDragging) return;
-      const rect = container.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
+      const cx = cachedCx;
+      const cy = cachedCy;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       const newAngle = Math.atan2(dy, dx);
@@ -194,7 +209,6 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     });
 
     orb.addEventListener('pointerup', (e) => {
-      if (isInsideTooltip(e)) return;
       if (e.pointerType === 'touch' && !isDragging) {
         const elapsed = Date.now() - touchStartTime;
         const moveDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
