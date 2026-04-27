@@ -602,9 +602,33 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   }
 
   let animId: number | null = null;
+  let lastFrameTime = 0;
+  const targetFrameInterval = 1000 / 30;
 
-  function draw() {
+  const peakHeights: number[] = new Array(barCount).fill(0);
+  const peakDecay = 0.92;
+
+  function logScaleBin(i: number, total: number, maxBin: number): number {
+    const minFreq = 1;
+    const logMin = Math.log(minFreq);
+    const logMax = Math.log(maxBin);
+    const t = i / Math.max(total - 1, 1);
+    const logVal = logMin + t * (logMax - logMin);
+    return Math.min(Math.floor(Math.exp(logVal)), maxBin - 1);
+  }
+
+  function draw(timestamp: number) {
     if (!ctx) return;
+    if (document.hidden) {
+      animId = requestAnimationFrame(draw);
+      return;
+    }
+    if (timestamp - lastFrameTime < targetFrameInterval) {
+      animId = requestAnimationFrame(draw);
+      return;
+    }
+    lastFrameTime = timestamp;
+
     const data = app.getFrequencyData();
     const s = app.store.getState();
     const isSpeaking = s.localSpeaking;
@@ -613,12 +637,19 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     ctx.clearRect(0, 0, displaySize, displaySize);
 
     if (data) {
-      const step = Math.floor(data.length / barCount);
       for (let i = 0; i < barCount; i++) {
-        const value = data[i * step] / 255;
+        const binIndex = logScaleBin(i, barCount, data.length);
+        const value = data[binIndex] / 255;
         const targetHeight = value * maxRadius * 0.75;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
+
+        if (barHeight > peakHeights[i]) {
+          peakHeights[i] = barHeight;
+        } else {
+          peakHeights[i] *= peakDecay;
+        }
+
         const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
         const x1 = centerX + Math.cos(angle) * innerRadius;
         const y1 = centerY + Math.sin(angle) * innerRadius;
@@ -637,6 +668,15 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
+
+        if (peakHeights[i] > 2) {
+          const peakX = centerX + Math.cos(angle) * (innerRadius + peakHeights[i]);
+          const peakY = centerY + Math.sin(angle) * (innerRadius + peakHeights[i]);
+          ctx.beginPath();
+          ctx.arc(peakX, peakY, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = isSpeaking ? 'rgba(255, 200, 100, 0.8)' : 'rgba(138, 127, 117, 0.4)';
+          ctx.fill();
+        }
       }
     }
 
