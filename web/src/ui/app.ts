@@ -35,7 +35,7 @@ interface ConnectedElements {
   orbLabel: HTMLElement;
   participants: HTMLElement;
   controls: HTMLElement;
-  canvasCtx: CanvasRenderingContext2D;
+  canvasCtx: CanvasRenderingContext2D | null;
   animId: number | null;
   chatBar: HTMLElement;
   chatDropdown: HTMLElement;
@@ -566,7 +566,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   const controls = document.createElement('div');
   container.appendChild(controls);
 
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
   const maxRadius = canvas.width / 2 - 16;
@@ -574,6 +574,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   let animId: number | null = null;
 
   function draw() {
+    if (!ctx) return;
     const data = app.getFrequencyData();
     const s = app.store.getState();
     const isSpeaking = s.localSpeaking;
