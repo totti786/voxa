@@ -185,11 +185,17 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
       if (!ctx.roomId) { send(ws, { type: 'error', message: 'not_in_room' }); return; }
       const room = roomState.getRoom(ctx.roomId);
       if (!room || room.ownerPeerId !== ctx.peerId) { send(ws, { type: 'error', message: 'not_owner' }); return; }
-      const targetWs = findClientByPeerId(msg.peer_id)?.ws;
-      if (targetWs) {
-        send(targetWs, { type: 'kicked', reason: 'kicked_by_owner' });
-        setTimeout(() => targetWs.close(1008, 'kicked'), 100);
+      const targetCtx = findClientByPeerId(msg.peer_id);
+      if (targetCtx) {
+        send(targetCtx.ws, { type: 'kicked', reason: 'kicked_by_owner' });
+        targetCtx.roomId = null;
+        setTimeout(() => {
+          if (targetCtx.ws.readyState === WebSocket.OPEN) {
+            targetCtx.ws.close(1008, 'kicked');
+          }
+        }, 2000);
       }
+      handlePeerLeave(ctx.roomId, msg.peer_id);
       kickPeer(ctx.roomId, msg.peer_id);
       break;
     }

@@ -43,6 +43,10 @@ function saveOrbAngles(roomId: string, angles: Map<string, number>): void {
 }
 
 export function renderParticipants(container: HTMLElement, peers: PeerInfo[], app: VoiceApp, roomId: string): void {
+  const prevCloser = (container as any).__tooltipCloser as EventListener | undefined;
+  if (prevCloser) {
+    document.removeEventListener('pointerdown', prevCloser);
+  }
   container.innerHTML = '';
 
   const radius = 180;
@@ -140,14 +144,34 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     }
 
     let isDragging = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let touchHasDragged = false;
 
     orb.addEventListener('pointerdown', (e) => {
-      isDragging = true;
-      orb.setPointerCapture(e.pointerId);
-      orb.classList.add('dragging');
+      if (e.pointerType === 'touch') {
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+        touchStartTime = Date.now();
+        touchHasDragged = false;
+      } else {
+        isDragging = true;
+        orb.setPointerCapture(e.pointerId);
+        orb.classList.add('dragging');
+      }
     });
 
     orb.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch' && !isDragging) {
+        const moveDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+        if (moveDist > 6) {
+          touchHasDragged = true;
+          isDragging = true;
+          orb.setPointerCapture(e.pointerId);
+          orb.classList.add('dragging');
+        }
+      }
       if (!isDragging) return;
       const rect = container.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
@@ -164,22 +188,49 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       storedAngles.set(peer.id, newAngle);
     });
 
-    orb.addEventListener('pointerup', () => {
+    orb.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'touch' && !isDragging) {
+        const elapsed = Date.now() - touchStartTime;
+        const moveDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+        if (elapsed < 350 && moveDist < 10) {
+          const isVisible = orb.classList.contains('tooltip-visible');
+          container.querySelectorAll('.peer-orb.tooltip-visible').forEach((o) => {
+            if (o !== orb) o.classList.remove('tooltip-visible');
+          });
+          orb.classList.toggle('tooltip-visible', !isVisible);
+        }
+        return;
+      }
       if (!isDragging) return;
       isDragging = false;
       orb.classList.remove('dragging');
       saveOrbAngles(roomId, storedAngles);
     });
 
-    orb.addEventListener('pointerleave', () => {
+    orb.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'touch') return;
       if (!isDragging) return;
       isDragging = false;
       orb.classList.remove('dragging');
       saveOrbAngles(roomId, storedAngles);
+    });
+
+    volSlider.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
     });
 
     container.appendChild(orb);
   });
+
+  const closeTooltips = (e: PointerEvent) => {
+    if (!(e.target as HTMLElement).closest('.peer-orb')) {
+      container.querySelectorAll('.peer-orb.tooltip-visible').forEach((o) => {
+        o.classList.remove('tooltip-visible');
+      });
+    }
+  };
+  document.addEventListener('pointerdown', closeTooltips);
+  (container as any).__tooltipCloser = closeTooltips;
 }
 
 function escapeHtml(text: string): string {

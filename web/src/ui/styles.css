@@ -682,7 +682,8 @@ body {
   height: 10px;
 }
 
-.peer-orb:hover .volume-tooltip {
+.peer-orb:hover .volume-tooltip,
+.peer-orb.tooltip-visible .volume-tooltip {
   opacity: 1;
   pointer-events: auto;
 }
