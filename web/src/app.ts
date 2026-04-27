@@ -30,6 +30,7 @@ export interface AppState {
   selfPeerId: string | null;
   localIsOwner: boolean;
   localForceMuted: boolean;
+  password?: string;
 }
 
 export function createAppState(): Store<AppState> {
@@ -125,7 +126,7 @@ export class VoiceApp {
       if (wasConnecting) return;
       const state = this.store.getState();
       if (state.roomId && state.displayName) {
-        this.signaling.send({ type: 'join', room: state.roomId, display_name: state.displayName });
+        this.signaling.send({ type: 'join', room: state.roomId, display_name: state.displayName, password: state.password });
       }
     });
     this.signaling.onDisconnect(() => {
@@ -138,7 +139,7 @@ export class VoiceApp {
   }
 
   async join(roomId: string, displayName: string, password?: string): Promise<void> {
-    this.store.setState({ connecting: true, roomId, displayName, joinError: null });
+    this.store.setState({ connecting: true, roomId, displayName, joinError: null, password });
     localStorage.setItem('voxa-username', displayName);
     this.signaling.connect();
     const TIMEOUT_MS = 10000;
@@ -170,7 +171,7 @@ export class VoiceApp {
     this.signaling.leave();
     this.signaling.flushAndDisconnect();
     this.cleanupCall();
-    this.store.setState({ roomId: null, peers: [], connected: false, messages: [], selfPeerId: null, localIsOwner: false, localForceMuted: false });
+    this.store.setState({ roomId: null, peers: [], connected: false, messages: [], selfPeerId: null, localIsOwner: false, localForceMuted: false, password: undefined });
   }
 
   sendChat(text: string): void {
@@ -501,6 +502,13 @@ export class VoiceApp {
         });
         this.remoteAudioElements.get(msg.peer_id)?.remove();
         this.remoteAudioElements.delete(msg.peer_id);
+        this.peerVolumes.delete(msg.peer_id);
+        for (const [consumerId, consumer] of this.consumers) {
+          if (consumer.appData && (consumer.appData as Record<string, unknown>).producerPeerId === msg.peer_id) {
+            consumer.close();
+            this.consumers.delete(consumerId);
+          }
+        }
         break;
       }
       case 'peer_mute': {
@@ -675,6 +683,7 @@ export class VoiceApp {
         }
         this.remoteAudioElements.get(msg.peerId)?.remove();
         this.remoteAudioElements.delete(msg.peerId);
+        this.peerVolumes.delete(msg.peerId);
         break;
       }
       case 'chat': {
