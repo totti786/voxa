@@ -776,24 +776,6 @@ body {
   80% { transform: translateX(4px); }
 }
 
-.device-select {
-  width: 100%;
-  padding: 12px 0;
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: 14px;
-  outline: none;
-  cursor: pointer;
-}
-
-.device-select option {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-}
-
 .create-room-form {
   width: 100%;
   display: flex;
@@ -1184,4 +1166,95 @@ body {
   transform: none;
   border-color: var(--accent-amber);
   color: var(--accent-amber);
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+}
+
+.name-input {
+  flex: 1;
+  padding: 14px 0;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 16px;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.name-input::placeholder {
+  color: var(--text-muted);
+}
+
+.name-input:focus {
+  border-bottom-color: var(--accent-amber);
+}
+
+.device-select-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.device-select-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.device-select-btn:hover {
+  border-color: var(--border-glow);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.device-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.device-option {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-option:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
 }

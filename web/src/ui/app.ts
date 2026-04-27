@@ -45,7 +45,7 @@ interface ConnectedElements {
 
 interface OfflineElements {
   errorEl: HTMLElement;
-  deviceSelect: HTMLSelectElement;
+  deviceBtn: HTMLButtonElement;
   createForm: HTMLElement | null;
 }
 
@@ -230,32 +230,74 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   newRoomInput.style.display = 'none';
   wrap.appendChild(newRoomInput);
 
-  const deviceSelect = document.createElement('select');
-  deviceSelect.className = 'device-select';
-  deviceSelect.innerHTML = '<option value="">Default Microphone</option>';
-  populateDeviceSelect(deviceSelect, app);
-  deviceSelect.onchange = () => {
-    const deviceId = deviceSelect.value || null;
-    app.store.setState({ selectedDeviceId: deviceId });
-    if (deviceId) {
-      localStorage.setItem('voxa-preferred-device', deviceId);
-    } else {
+  const deviceBtn = document.createElement('button');
+  deviceBtn.className = 'device-select-btn';
+  deviceBtn.type = 'button';
+  deviceBtn.title = 'Select microphone';
+  deviceBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+
+  const deviceDropdown = document.createElement('div');
+  deviceDropdown.className = 'device-dropdown';
+  deviceDropdown.style.display = 'none';
+
+  async function refreshDeviceDropdown() {
+    deviceDropdown.innerHTML = '';
+    const defaultOpt = document.createElement('div');
+    defaultOpt.className = 'device-option';
+    defaultOpt.textContent = 'Default Microphone';
+    defaultOpt.onclick = () => {
+      app.store.setState({ selectedDeviceId: null });
       localStorage.removeItem('voxa-preferred-device');
+      deviceDropdown.style.display = 'none';
+    };
+    deviceDropdown.appendChild(defaultOpt);
+
+    try {
+      const devices = await app.enumerateAudioDevices();
+      const inputs = devices.filter((d) => d.kind === 'audioinput');
+      for (const device of inputs) {
+        const opt = document.createElement('div');
+        opt.className = 'device-option';
+        opt.textContent = device.label || `Microphone ${deviceDropdown.children.length}`;
+        opt.onclick = () => {
+          app.store.setState({ selectedDeviceId: device.deviceId });
+          localStorage.setItem('voxa-preferred-device', device.deviceId);
+          deviceDropdown.style.display = 'none';
+        };
+        deviceDropdown.appendChild(opt);
+      }
+    } catch (err) {
+      console.error('Failed to enumerate devices:', err);
     }
+  }
+
+  deviceBtn.onclick = () => {
+    const isOpen = deviceDropdown.style.display === 'block';
+    if (!isOpen) {
+      refreshDeviceDropdown();
+    }
+    deviceDropdown.style.display = isOpen ? 'none' : 'block';
   };
+
   const savedDevice = localStorage.getItem('voxa-preferred-device');
   if (savedDevice) {
     app.store.setState({ selectedDeviceId: savedDevice });
   }
-  wrap.appendChild(deviceSelect);
 
+  // Build a name input row with device button inline
+  const nameRow = document.createElement('div');
+  nameRow.className = 'name-row';
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'Your name';
+  nameInput.className = 'name-input';
   const savedName = localStorage.getItem('voxa-username');
   if (savedName) {
     nameInput.value = savedName;
   }
-  wrap.appendChild(nameInput);
+  nameRow.appendChild(nameInput);
+  nameRow.appendChild(deviceBtn);
+  nameRow.appendChild(deviceDropdown);
+  wrap.appendChild(nameRow);
 
   const passInput = document.createElement('input');
   passInput.type = 'password';
@@ -311,27 +353,7 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
 
   container.appendChild(wrap);
   els.offlineScreen = wrap;
-  els.offlineElements = { errorEl, deviceSelect, createForm };
-}
-
-async function populateDeviceSelect(select: HTMLSelectElement, app: VoiceApp): Promise<void> {
-  try {
-    const devices = await app.enumerateAudioDevices();
-    const inputs = devices.filter((d) => d.kind === 'audioinput');
-    const saved = localStorage.getItem('voxa-preferred-device');
-    select.innerHTML = '<option value="">Default Microphone</option>';
-    inputs.forEach((device) => {
-      const opt = document.createElement('option');
-      opt.value = device.deviceId;
-      opt.textContent = device.label;
-      select.appendChild(opt);
-    });
-    if (saved) {
-      select.value = saved;
-    }
-  } catch (err) {
-    console.error('Failed to enumerate devices:', err);
-  }
+  els.offlineElements = { errorEl, deviceBtn, createForm };
 }
 
 function updateOfflineElements(els: OfflineElements, state: AppState): void {
