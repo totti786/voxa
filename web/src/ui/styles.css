@@ -637,79 +637,7 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.control-slider span {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  min-width: 36px;
-  text-align: center;
-}
 
-.control-slider input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 80px;
-  height: 14px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, var(--accent-amber) 0%, var(--accent-amber) var(--value, 0%), var(--border-subtle) var(--value, 0%));
-  outline: none;
-  transform: rotate(-90deg);
-  cursor: pointer;
-  touch-action: none;
-}
-
-.control-slider input[type="range"]::-webkit-slider-runnable-track {
-  height: 14px;
-  border-radius: 8px;
-}
-
-.control-slider input[type="range"]::-moz-range-track {
-  height: 14px;
-  border-radius: 8px;
-  background: var(--border-subtle);
-}
-
-.control-slider input[type="range"]::-moz-range-progress {
-  height: 14px;
-  border-radius: 8px;
-  background: var(--accent-amber);
-}
-
-.control-slider input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-amber);
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 3px solid var(--bg-surface);
-}
-
-.control-slider input[type="range"]::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-amber);
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 3px solid var(--bg-surface);
-}
-
-.control-slider input[type="range"]::-webkit-slider-thumb:hover,
-.control-slider input[type="range"]::-webkit-slider-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 0 24px var(--accent-amber-glow), 0 4px 12px rgba(0,0,0,0.4);
-}
-
-.control-slider input[type="range"]::-moz-range-thumb:hover,
-.control-slider input[type="range"]::-moz-range-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 0 24px var(--accent-amber-glow), 0 4px 12px rgba(0,0,0,0.4);
-}
 
 .connecting-state {
   display: flex;
@@ -846,60 +774,6 @@ body {
   width: 14px;
   height: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.peer-volume-slider::-webkit-slider-runnable-track {
-  height: 14px;
-  border-radius: 8px;
-}
-
-.peer-volume-slider::-moz-range-track {
-  height: 14px;
-  border-radius: 8px;
-  background: var(--border-subtle);
-}
-
-.peer-volume-slider::-moz-range-progress {
-  height: 14px;
-  border-radius: 8px;
-  background: var(--accent-amber);
-}
-
-.peer-volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-amber);
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 3px solid var(--bg-surface);
-  margin-top: -7px;
-}
-
-.peer-volume-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-amber);
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 3px solid var(--bg-surface);
-}
-
-.peer-volume-slider::-webkit-slider-thumb:hover,
-.peer-volume-slider::-webkit-slider-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 0 24px var(--accent-amber-glow), 0 4px 12px rgba(0,0,0,0.4);
-}
-
-.peer-volume-slider::-moz-range-thumb:hover,
-.peer-volume-slider::-moz-range-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 0 24px var(--accent-amber-glow), 0 4px 12px rgba(0,0,0,0.4);
 }
 
 .join-error {
@@ -1098,79 +972,7 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.extra-slider span {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  min-width: 50px;
-  text-align: center;
-}
 
-.extra-slider input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 80px;
-  height: 14px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, var(--accent-amber) 0%, var(--accent-amber) var(--value, 0%), var(--border-subtle) var(--value, 0%));
-  outline: none;
-  cursor: pointer;
-  touch-action: none;
-}
-
-.extra-slider input[type="range"]::-webkit-slider-runnable-track {
-  height: 14px;
-  border-radius: 8px;
-}
-
-.extra-slider input[type="range"]::-moz-range-track {
-  height: 14px;
-  border-radius: 8px;
-  background: var(--border-subtle);
-}
-
-.extra-slider input[type="range"]::-moz-range-progress {
-  height: 14px;
-  border-radius: 8px;
-  background: var(--accent-amber);
-}
-
-.extra-slider input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-amber);
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 3px solid var(--bg-surface);
-  margin-top: -7px;
-}
-
-.extra-slider input[type="range"]::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-amber);
-  cursor: pointer;
-  box-shadow: 0 0 12px var(--accent-amber-glow), 0 2px 8px rgba(0,0,0,0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 3px solid var(--bg-surface);
-}
-
-.extra-slider input[type="range"]::-webkit-slider-thumb:hover,
-.extra-slider input[type="range"]::-webkit-slider-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 0 24px var(--accent-amber-glow), 0 4px 12px rgba(0,0,0,0.4);
-}
-
-.extra-slider input[type="range"]::-moz-range-thumb:hover,
-.extra-slider input[type="range"]::-moz-range-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 0 24px var(--accent-amber-glow), 0 4px 12px rgba(0,0,0,0.4);
-}
 
 .connected-layout {
   position: relative;
