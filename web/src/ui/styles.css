@@ -561,6 +561,7 @@ body {
   align-items: center;
   gap: 6px;
   z-index: 10;
+  transform: translateX(-50%);
 }
 
 .control-slider span {

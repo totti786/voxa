@@ -166,7 +166,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   const gainRadius = 110;
   const gainWrap = document.createElement('div');
   gainWrap.className = 'control-slider';
-  gainWrap.style.left = `${centerX + gainRadius * Math.cos(gainAngle) - 24}px`;
+  gainWrap.style.left = `${centerX + gainRadius * Math.cos(gainAngle)}px`;
   gainWrap.style.top = `${centerY + gainRadius * Math.sin(gainAngle) - 50}px`;
 
   const gainLabel = document.createElement('span');
