@@ -149,7 +149,12 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     let touchStartTime = 0;
     let touchHasDragged = false;
 
+    function isInsideTooltip(e: PointerEvent): boolean {
+      return !!(e.target as HTMLElement).closest('.volume-tooltip');
+    }
+
     orb.addEventListener('pointerdown', (e) => {
+      if (isInsideTooltip(e)) return;
       if (e.pointerType === 'touch') {
         touchStartX = e.clientX;
         touchStartY = e.clientY;
@@ -189,6 +194,7 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     });
 
     orb.addEventListener('pointerup', (e) => {
+      if (isInsideTooltip(e)) return;
       if (e.pointerType === 'touch' && !isDragging) {
         const elapsed = Date.now() - touchStartTime;
         const moveDist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
