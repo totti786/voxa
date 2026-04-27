@@ -143,4 +143,41 @@ describe('VoiceApp integration', () => {
       expect.not.objectContaining({ iceTransportPolicy: 'relay' })
     );
   });
+
+  it('activates PTT on P key hold and auto-enables PTT mode', () => {
+    const app = new VoiceApp('ws://test/ws');
+    const producer = {
+      paused: false,
+      pause: vi.fn(function (this: any) { this.paused = true; }),
+      resume: vi.fn(function (this: any) { this.paused = false; }),
+    };
+    app.producer = producer as any;
+
+    expect(app.store.getState().pttEnabled).toBe(false);
+
+    app.setPttActiveFromKey(true);
+    expect(app.store.getState().pttEnabled).toBe(true);
+    expect(app.store.getState().pttActive).toBe(true);
+
+    app.setPttActiveFromKey(false);
+    expect(app.store.getState().pttActive).toBe(false);
+    expect(producer.pause).toHaveBeenCalled();
+    expect(app.store.getState().pttEnabled).toBe(true);
+  });
+
+  it('toggles mute on M key via setMute', () => {
+    const app = new VoiceApp('ws://test/ws');
+    app.setMute(true);
+    expect(app.store.getState().localMuted).toBe(true);
+    app.setMute(false);
+    expect(app.store.getState().localMuted).toBe(false);
+  });
+
+  it('toggles deafen on D key via setDeafen', () => {
+    const app = new VoiceApp('ws://test/ws');
+    app.setDeafen(true);
+    expect(app.store.getState().deafened).toBe(true);
+    app.setDeafen(false);
+    expect(app.store.getState().deafened).toBe(false);
+  });
 });
