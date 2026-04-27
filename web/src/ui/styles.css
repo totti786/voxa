@@ -585,21 +585,21 @@ body {
 }
 
 .control-slider input[type="range"]::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.1) var(--value));
 }
 
 .control-slider input[type="range"]::-moz-range-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
 }
 
 .control-slider input[type="range"]::-moz-range-progress {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: var(--accent-amber);
 }
 
@@ -611,7 +611,7 @@ body {
   border-radius: 50%;
   border: none;
   background: var(--accent-amber);
-  margin-top: -4px;
+  margin-top: 0;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -722,21 +722,21 @@ body {
 }
 
 .peer-volume-slider::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.1) var(--value));
 }
 
 .peer-volume-slider::-moz-range-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
 }
 
 .peer-volume-slider::-moz-range-progress {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: var(--accent-amber);
 }
 
@@ -748,7 +748,7 @@ body {
   border-radius: 50%;
   border: none;
   background: var(--accent-amber);
-  margin-top: -4px;
+  margin-top: 0;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -880,7 +880,7 @@ body {
 
 .control-extras {
   position: absolute;
-  bottom: -60px;
+  bottom: -76px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -915,21 +915,21 @@ body {
 }
 
 .extra-slider input[type="range"]::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.1) var(--value));
 }
 
 .extra-slider input[type="range"]::-moz-range-track {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
 }
 
 .extra-slider input[type="range"]::-moz-range-progress {
-  height: 8px;
-  border-radius: 4px;
+  height: 16px;
+  border-radius: 8px;
   background: var(--accent-amber);
 }
 
@@ -941,7 +941,7 @@ body {
   border-radius: 50%;
   border: none;
   background: var(--accent-amber);
-  margin-top: -4px;
+  margin-top: 0;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
