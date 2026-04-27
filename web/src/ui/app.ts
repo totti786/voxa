@@ -41,6 +41,7 @@ interface ConnectedElements {
   chatMessages: HTMLElement;
   chatInput: HTMLInputElement;
   lastMessageCount: number;
+  _cleanupKeyboard?: () => void;
 }
 
 interface OfflineElements {
@@ -179,6 +180,9 @@ function startParticles(els: Elements): void {
 }
 
 function clearConnected(els: Elements): void {
+  if (els.connectedScreen?._cleanupKeyboard) {
+    els.connectedScreen._cleanupKeyboard();
+  }
   if (els.connectedScreen?.animId) {
     cancelAnimationFrame(els.connectedScreen.animId);
     els.connectedScreen.animId = null;
@@ -597,6 +601,52 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     }
   };
   els.connectedScreen = connected;
+
+  function isInputFocused(): boolean {
+    const el = document.activeElement;
+    if (!el) return false;
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el as HTMLElement).isContentEditable;
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (isInputFocused()) return;
+    const state = app.store.getState();
+    switch (e.key.toLowerCase()) {
+      case 'p': {
+        if (!app.isPKeyPttActive()) {
+          app.setPttActiveFromKey(true);
+        }
+        break;
+      }
+      case 'm': {
+        app.setMute(!state.localMuted);
+        break;
+      }
+      case 'd': {
+        app.setDeafen(!state.deafened);
+        break;
+      }
+      case 'escape': {
+        const focused = document.activeElement as HTMLElement | null;
+        if (focused && focused.blur) focused.blur();
+        break;
+      }
+    }
+  }
+
+  function onKeyUp(e: KeyboardEvent) {
+    if (e.key.toLowerCase() === 'p' && app.isPKeyPttActive()) {
+      app.setPttActiveFromKey(false);
+    }
+  }
+
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+
+  (connected as any)._cleanupKeyboard = () => {
+    document.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('keyup', onKeyUp);
+  };
 }
 
 function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp): void {
