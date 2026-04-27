@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VoiceApp } from '../../src/app.js';
+import { renderApp } from '../../src/ui/app.js';
 
 describe('VoiceApp integration', () => {
   beforeEach(() => {
@@ -10,6 +11,15 @@ describe('VoiceApp integration', () => {
       readyState: 1,
     })) as unknown as typeof WebSocket;
     (global.WebSocket as any).OPEN = 1;
+    global.localStorage = {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+    } as unknown as Storage;
+    document.body.innerHTML = '';
   });
 
   it('creates app with initial state', () => {
@@ -179,5 +189,60 @@ describe('VoiceApp integration', () => {
     expect(app.store.getState().deafened).toBe(true);
     app.setDeafen(false);
     expect(app.store.getState().deafened).toBe(false);
+  });
+
+  it('renders chat bar with empty state', () => {
+    const app = new VoiceApp('ws://test/ws');
+    renderApp(document.body, app);
+    app.join('test-room', 'Alice');
+    app.store.setState({ connecting: false, connected: true, roomId: 'test-room' });
+    
+    const bar = document.body.querySelector('.chat-bar') as HTMLElement;
+    expect(bar).toBeTruthy();
+    
+    const preview = bar.querySelector('.chat-bar-preview') as HTMLElement;
+    expect(preview.textContent).toBe('No messages yet');
+    expect(preview.classList.contains('empty')).toBe(true);
+  });
+
+  it('shows system message when peer joins', () => {
+    const app = new VoiceApp('ws://test/ws');
+    renderApp(document.body, app);
+    app.join('test-room', 'Alice');
+    app.store.setState({ connecting: false, connected: true, roomId: 'test-room' });
+    
+    // Simulate peer_joined event
+    app.store.setState({
+      peers: [{ id: 'peer-1', display_name: 'Bob', muted: false, speaking: false }],
+      messages: [{
+        type: 'system',
+        event: 'peer_joined',
+        peer_id: 'peer-1',
+        timestamp: Date.now(),
+      }],
+    });
+    
+    const messages = document.body.querySelector('.chat-messages') as HTMLElement;
+    const systemMsg = messages.querySelector('.chat-system-message') as HTMLElement;
+    expect(systemMsg).toBeTruthy();
+    expect(systemMsg.textContent).toContain('Bob joined the room');
+  });
+
+  it('expands and collapses chat dropdown on bar click', () => {
+    const app = new VoiceApp('ws://test/ws');
+    renderApp(document.body, app);
+    app.join('test-room', 'Alice');
+    app.store.setState({ connecting: false, connected: true, roomId: 'test-room' });
+    
+    const bar = document.body.querySelector('.chat-bar') as HTMLElement;
+    const dropdown = document.body.querySelector('.chat-dropdown') as HTMLElement;
+    
+    expect(dropdown.style.display).toBe('none');
+    
+    bar.click();
+    expect(dropdown.style.display).toBe('flex');
+    
+    bar.click();
+    expect(dropdown.style.display).toBe('none');
   });
 });
