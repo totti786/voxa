@@ -971,6 +971,7 @@ body {
 .chat-wrap {
   position: relative;
   width: min(400px, 90vw);
+  max-width: 400px;
 }
 
 .chat-bar {
@@ -1030,7 +1031,7 @@ body {
 
 .chat-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   left: 0;
   width: 100%;
   max-height: 320px;
