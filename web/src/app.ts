@@ -75,6 +75,7 @@ export class VoiceApp {
   remoteAudioElements = new Map<string, HTMLAudioElement>();
   peerVolumes = new Map<string, number>();
   private localAudioSetup = false;
+  private freqData: Uint8Array<ArrayBuffer> | null = null;
   private readonly TRANSPORT_TIMEOUT_MS = 10000;
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
   private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
@@ -301,10 +302,12 @@ export class VoiceApp {
   }
 
   getFrequencyData(): Uint8Array | null {
-    if (!this.audioGraph) return null;
-    const data = new Uint8Array(this.audioGraph.analyzer.frequencyBinCount);
-    this.audioGraph.analyzer.getByteFrequencyData(data);
-    return data;
+    if (!this.audioGraph?.analyzer) return null;
+    if (!this.freqData) {
+      this.freqData = new Uint8Array(this.audioGraph.analyzer.frequencyBinCount);
+    }
+    this.audioGraph.analyzer.getByteFrequencyData(this.freqData);
+    return this.freqData;
   }
 
   private async setupLocalAudio(): Promise<void> {

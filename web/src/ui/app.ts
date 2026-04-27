@@ -459,8 +459,12 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   const canvas = document.createElement('canvas');
   canvas.className = 'orb-canvas';
-  canvas.width = 264;
-  canvas.height = 264;
+  const dpr = window.devicePixelRatio || 1;
+  const displaySize = 264;
+  canvas.width = displaySize * dpr;
+  canvas.height = displaySize * dpr;
+  canvas.style.width = `${displaySize}px`;
+  canvas.style.height = `${displaySize}px`;
 
   const orbLabel = document.createElement('div');
   orbLabel.className = 'orb-label';
@@ -569,10 +573,34 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   container.appendChild(controls);
 
   const ctx = canvas.getContext('2d');
-  const centerX = canvas.width / 2;
-  const centerY = canvas.height / 2;
-  const maxRadius = canvas.width / 2 - 16;
+  if (ctx) ctx.scale(dpr, dpr);
+
+  const centerX = displaySize / 2;
+  const centerY = displaySize / 2;
+  const maxRadius = displaySize / 2 - 16;
   const barCount = 32;
+  const smoothedHeights: number[] = new Array(barCount).fill(0);
+  const smoothingFactor = 0.15;
+  const innerRadius = maxRadius * 0.2;
+
+  let speakingGradient: CanvasGradient | null = null;
+  let silentGradient: CanvasGradient | null = null;
+  let mutedGradient: CanvasGradient | null = null;
+
+  if (ctx) {
+    speakingGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
+    speakingGradient.addColorStop(0, 'rgba(255, 159, 67, 0.5)');
+    speakingGradient.addColorStop(1, 'rgba(254, 202, 87, 0.95)');
+
+    silentGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
+    silentGradient.addColorStop(0, 'rgba(138, 127, 117, 0.1)');
+    silentGradient.addColorStop(1, 'rgba(138, 127, 117, 0.35)');
+
+    mutedGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
+    mutedGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
+    mutedGradient.addColorStop(1, 'rgba(255, 107, 107, 0.7)');
+  }
+
   let animId: number | null = null;
 
   function draw() {
@@ -582,32 +610,27 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     const isSpeaking = s.localSpeaking;
     const isMuted = s.localMuted;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const innerRadius = maxRadius * 0.2;
+    ctx.clearRect(0, 0, displaySize, displaySize);
 
     if (data) {
       const step = Math.floor(data.length / barCount);
       for (let i = 0; i < barCount; i++) {
         const value = data[i * step] / 255;
+        const targetHeight = value * maxRadius * 0.75;
+        smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
+        const barHeight = smoothedHeights[i];
         const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-        const barHeight = value * maxRadius * 0.75;
         const x1 = centerX + Math.cos(angle) * innerRadius;
         const y1 = centerY + Math.sin(angle) * innerRadius;
         const x2 = centerX + Math.cos(angle) * (innerRadius + barHeight);
         const y2 = centerY + Math.sin(angle) * (innerRadius + barHeight);
-        const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
         if (isMuted) {
-          gradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
-          gradient.addColorStop(1, 'rgba(255, 107, 107, 0.7)');
+          ctx.strokeStyle = mutedGradient!;
         } else if (isSpeaking) {
-          gradient.addColorStop(0, 'rgba(255, 159, 67, 0.5)');
-          gradient.addColorStop(1, 'rgba(254, 202, 87, 0.95)');
+          ctx.strokeStyle = speakingGradient!;
         } else {
-          gradient.addColorStop(0, 'rgba(138, 127, 117, 0.1)');
-          gradient.addColorStop(1, 'rgba(138, 127, 117, 0.35)');
+          ctx.strokeStyle = silentGradient!;
         }
-        ctx.strokeStyle = gradient;
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.beginPath();
@@ -625,13 +648,15 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       glow.addColorStop(0.5, 'rgba(255, 159, 67, 0.08)');
       glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
       ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, displaySize, displaySize);
     }
 
     animId = requestAnimationFrame(draw);
   }
 
-  animId = requestAnimationFrame(draw);
+  if (ctx) {
+    animId = requestAnimationFrame(draw);
+  }
 
   const connected: ConnectedElements = {
     orbWrap, orbRing: ring, orbCanvas: canvas, orbLabel, participants, controls,
