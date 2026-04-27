@@ -465,14 +465,9 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   const orbLabel = document.createElement('div');
   orbLabel.className = 'orb-label';
 
-  orbWrap.append(ring, canvas, orbLabel);
-  layout.appendChild(orbWrap);
+  const chatWrap = document.createElement('div');
+  chatWrap.className = 'chat-wrap';
 
-  const participants = document.createElement('div');
-  participants.className = 'participants-ring';
-  orbWrap.appendChild(participants);
-
-  // Chat bar
   const chatBar = document.createElement('div');
   chatBar.className = 'chat-bar';
 
@@ -491,9 +486,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   chatBar.appendChild(chatIcon);
   chatBar.appendChild(chatPreview);
   chatBar.appendChild(chatChevron);
-  layout.appendChild(chatBar);
+  chatWrap.appendChild(chatBar);
 
-  // Chat dropdown
   const chatDropdown = document.createElement('div');
   chatDropdown.className = 'chat-dropdown';
   chatDropdown.style.display = 'none';
@@ -521,7 +515,15 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   chatInputWrap.appendChild(chatSendBtn);
 
   chatDropdown.appendChild(chatInputWrap);
-  layout.appendChild(chatDropdown);
+  chatWrap.appendChild(chatDropdown);
+  layout.appendChild(chatWrap);
+
+  orbWrap.append(ring, canvas, orbLabel);
+  layout.appendChild(orbWrap);
+
+  const participants = document.createElement('div');
+  participants.className = 'participants-ring';
+  orbWrap.appendChild(participants);
 
   chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {

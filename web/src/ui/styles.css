@@ -961,11 +961,16 @@ body {
 .connected-layout {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 40px;
+  gap: 16px;
   width: 100%;
   max-width: 1200px;
+}
+
+.chat-wrap {
+  position: relative;
+  width: min(400px, 90vw);
 }
 
 .chat-bar {
@@ -983,7 +988,6 @@ body {
   cursor: pointer;
   user-select: none;
   transition: box-shadow 0.3s ease;
-  margin-bottom: 12px;
 }
 
 .chat-bar-icon {
