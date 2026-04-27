@@ -79,6 +79,7 @@ export class VoiceApp {
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
   private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
   private pendingTransportConnect: Partial<Record<'send' | 'recv', { callback: () => void; errback: (error: Error) => void; timeoutId: ReturnType<typeof setTimeout> }>> = {};
+  private pKeyPttActive = false;
 
   constructor(signalingUrl: string) {
     this.store = createAppState();
@@ -284,6 +285,19 @@ export class VoiceApp {
     }
     this.store.setState({ pttActive: active });
     this.syncOutgoingAudioState();
+  }
+
+  setPttActiveFromKey(active: boolean): void {
+    this.pKeyPttActive = active;
+    const state = this.store.getState();
+    if (active && !state.pttEnabled) {
+      this.store.setState({ pttEnabled: true });
+    }
+    this.setPttActive(active);
+  }
+
+  isPKeyPttActive(): boolean {
+    return this.pKeyPttActive;
   }
 
   getFrequencyData(): Uint8Array | null {
