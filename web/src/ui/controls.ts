@@ -162,11 +162,12 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   deafenBtn.onclick = () => app.setDeafen(!state.deafened);
   container.appendChild(deafenBtn);
 
-  const gainPos = getPos(77 * Math.PI / 180);
+  const gainAngle = 90 * Math.PI / 180;
+  const gainRadius = 110;
   const gainWrap = document.createElement('div');
   gainWrap.className = 'control-slider';
-  gainWrap.style.left = `${gainPos.left - 24}px`;
-  gainWrap.style.top = `${gainPos.top - 50}px`;
+  gainWrap.style.left = `${centerX + gainRadius * Math.cos(gainAngle) - 24}px`;
+  gainWrap.style.top = `${centerY + gainRadius * Math.sin(gainAngle) - 50}px`;
 
   const gainLabel = document.createElement('span');
   gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;

@@ -911,7 +911,6 @@ body {
   background: transparent;
   cursor: pointer;
   touch-action: none;
-  transform: rotate(-90deg);
 }
 
 .extra-slider input[type="range"]::-webkit-slider-runnable-track {
