@@ -520,6 +520,11 @@ body {
   border-color: var(--border-glow);
 }
 
+.control-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .control-btn.active {
   background: rgba(255, 159, 67, 0.15);
   border-color: var(--accent-amber);
@@ -535,6 +540,11 @@ body {
   border-color: var(--accent-red);
   color: var(--accent-red);
   background: rgba(255, 107, 107, 0.08);
+}
+
+.control-btn.danger:active {
+  transform: scale(0.95);
+  background: rgba(255, 107, 107, 0.2);
 }
 
 .control-btn.danger.active {
@@ -1142,7 +1152,8 @@ body {
 }
 
 .chat-send-btn {
-  padding: 8px 14px;
+  padding: 10px 18px;
+  min-height: 44px;
   border-radius: 10px;
   border: none;
   background: var(--accent-amber);
@@ -1197,8 +1208,8 @@ body {
 }
 
 .admin-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.03);
@@ -1212,8 +1223,8 @@ body {
 }
 
 .admin-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .admin-btn:hover,
@@ -1281,8 +1292,8 @@ body {
 }
 
 .device-select-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.03);
@@ -1297,8 +1308,8 @@ body {
 }
 
 .device-select-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .device-select-btn:hover {
