@@ -42,6 +42,11 @@ function saveOrbAngles(roomId: string, angles: Map<string, number>): void {
   localStorage.setItem(getOrbAnglesKey(roomId), JSON.stringify(obj));
 }
 
+function distributeAnglesAvoidingBottom(index: number, total: number): number {
+  const usableArc = (Math.PI * 3) / 2;
+  return (index / Math.max(total, 1)) * usableArc - Math.PI / 2;
+}
+
 export function renderParticipants(container: HTMLElement, peers: PeerInfo[], app: VoiceApp, roomId: string): void {
   const prevCloser = (container as any).__tooltipCloser as EventListener | undefined;
   if (prevCloser) {
@@ -83,7 +88,7 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     if (angle === undefined) {
       const unpositionedPeers = peers.filter((p) => !storedAngles.has(p.id));
       const unpositionedIndex = unpositionedPeers.findIndex((p) => p.id === peer.id);
-      angle = (unpositionedIndex / Math.max(unpositionedPeers.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      angle = distributeAnglesAvoidingBottom(unpositionedIndex, unpositionedPeers.length);
     }
     const x = centerX + Math.cos(angle) * radius - 32;
     const y = centerY + Math.sin(angle) * radius - 32;
