@@ -32,23 +32,99 @@ const ICONS = {
   lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
 };
 
+interface ControlElements {
+  micBtn: HTMLButtonElement;
+  deafenBtn: HTMLButtonElement;
+  gainWrap: HTMLElement;
+  gainLabel: HTMLElement;
+  gainSlider: HTMLInputElement;
+  pttBtn: HTMLButtonElement;
+  leaveBtn: HTMLButtonElement;
+  extras: HTMLElement;
+  outputVolWrap: HTMLElement;
+  outputVolLabel: HTMLElement;
+  outputVolSlider: HTMLInputElement;
+  gateWrap: HTMLElement;
+  gateLabel: HTMLElement;
+  gateSlider: HTMLInputElement;
+}
+
+function getControlElements(container: HTMLElement): ControlElements | null {
+  const micBtn = container.querySelector('.control-btn[data-role="mic"]') as HTMLButtonElement | null;
+  const deafenBtn = container.querySelector('.control-btn[data-role="deafen"]') as HTMLButtonElement | null;
+  const gainWrap = container.querySelector('.control-slider') as HTMLElement | null;
+  const pttBtn = container.querySelector('.control-btn[data-role="ptt"]') as HTMLButtonElement | null;
+  const leaveBtn = container.querySelector('.control-btn[data-role="leave"]') as HTMLButtonElement | null;
+  const extras = container.querySelector('.control-extras') as HTMLElement | null;
+  if (!micBtn || !deafenBtn || !gainWrap || !pttBtn || !leaveBtn || !extras) return null;
+  const gainLabel = gainWrap.querySelector('span') as HTMLElement;
+  const gainSlider = gainWrap.querySelector('input') as HTMLInputElement;
+  const outputVolWrap = extras.children[0] as HTMLElement;
+  const gateWrap = extras.children[1] as HTMLElement;
+  const outputVolLabel = outputVolWrap.querySelector('span') as HTMLElement;
+  const outputVolSlider = outputVolWrap.querySelector('input') as HTMLInputElement;
+  const gateLabel = gateWrap.querySelector('span') as HTMLElement;
+  const gateSlider = gateWrap.querySelector('input') as HTMLInputElement;
+  return { micBtn, deafenBtn, gainWrap, gainLabel, gainSlider, pttBtn, leaveBtn, extras, outputVolWrap, outputVolLabel, outputVolSlider, gateWrap, gateLabel, gateSlider };
+}
+
 export function renderControls(container: HTMLElement, app: VoiceApp, state: AppState): void {
-  container.innerHTML = '';
   container.className = 'control-arc';
+
+  const els = getControlElements(container);
+  if (els) {
+    if (state.localForceMuted) {
+      els.micBtn.className = 'control-btn locked';
+      els.micBtn.innerHTML = ICONS.lock;
+      els.micBtn.title = 'Force muted by owner';
+      els.micBtn.onclick = () => {};
+    } else {
+      els.micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
+      els.micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
+      els.micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
+      els.micBtn.onclick = () => app.setMute(!state.localMuted);
+    }
+
+    els.deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
+    els.deafenBtn.innerHTML = state.deafened ? ICONS.headphonesOff : ICONS.headphones;
+    els.deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
+    els.deafenBtn.onclick = () => app.setDeafen(!state.deafened);
+
+    els.gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;
+    setSliderValue(els.gainSlider, state.inputGain * 100);
+    els.gainSlider.oninput = (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+      setSliderValue(els.gainSlider, val * 100);
+      app.setInputGain(val);
+    };
+
+    els.pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
+    els.pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
+    els.pttBtn.onclick = () => app.togglePtt();
+
+    els.outputVolLabel.textContent = `Output ${Math.round(state.outputVolume * 100)}%`;
+    setSliderValue(els.outputVolSlider, state.outputVolume * 100);
+    els.outputVolSlider.oninput = (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+      setSliderValue(els.outputVolSlider, val * 100);
+      app.setOutputVolume(val);
+    };
+
+    els.gateLabel.textContent = `Gate ${state.noiseGateThreshold}dB`;
+    setSliderValue(els.gateSlider, state.noiseGateThreshold);
+    els.gateSlider.oninput = (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      setSliderValue(els.gateSlider, val);
+      app.setNoiseGateThreshold(val);
+    };
+    return;
+  }
 
   const centerX = 160;
   const centerY = -30;
   const radius = 160;
   const btnSize = 52;
   const halfBtn = btnSize / 2;
-
-  const positions = [
-    { angle: 145 * Math.PI / 180, key: 'leave' },
-    { angle: 120 * Math.PI / 180, key: 'deafen' },
-    { angle: 90 * Math.PI / 180, key: 'gain' },
-    { angle: 60 * Math.PI / 180, key: 'ptt' },
-    { angle: 35 * Math.PI / 180, key: 'mic' },
-  ];
 
   function getPos(angle: number) {
     return {
@@ -57,8 +133,9 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
     };
   }
 
-  const micPos = getPos(positions[4].angle);
+  const micPos = getPos(35 * Math.PI / 180);
   const micBtn = document.createElement('button');
+  micBtn.dataset.role = 'mic';
   if (state.localForceMuted) {
     micBtn.className = 'control-btn locked';
     micBtn.innerHTML = ICONS.lock;
@@ -74,8 +151,9 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   micBtn.style.top = `${micPos.top}px`;
   container.appendChild(micBtn);
 
-  const deafenPos = getPos(positions[1].angle);
+  const deafenPos = getPos(120 * Math.PI / 180);
   const deafenBtn = document.createElement('button');
+  deafenBtn.dataset.role = 'deafen';
   deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
   deafenBtn.innerHTML = state.deafened ? ICONS.headphonesOff : ICONS.headphones;
   deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
@@ -84,7 +162,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   deafenBtn.onclick = () => app.setDeafen(!state.deafened);
   container.appendChild(deafenBtn);
 
-  const gainPos = getPos(positions[2].angle);
+  const gainPos = getPos(90 * Math.PI / 180);
   const gainWrap = document.createElement('div');
   gainWrap.className = 'control-slider';
   gainWrap.style.left = `${gainPos.left - 60}px`;
@@ -108,8 +186,9 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   gainWrap.append(gainLabel, gainSlider);
   container.appendChild(gainWrap);
 
-  const pttPos = getPos(positions[3].angle);
+  const pttPos = getPos(60 * Math.PI / 180);
   const pttBtn = document.createElement('button');
+  pttBtn.dataset.role = 'ptt';
   pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
   pttBtn.innerHTML = ICONS.ptt;
   pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
@@ -118,8 +197,9 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   pttBtn.onclick = () => app.togglePtt();
   container.appendChild(pttBtn);
 
-  const leavePos = getPos(positions[0].angle);
+  const leavePos = getPos(145 * Math.PI / 180);
   const leaveBtn = document.createElement('button');
+  leaveBtn.dataset.role = 'leave';
   leaveBtn.className = 'control-btn danger';
   leaveBtn.innerHTML = ICONS.leave;
   leaveBtn.title = 'Disconnect';
