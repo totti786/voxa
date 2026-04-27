@@ -105,6 +105,7 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
 
     els.headerRoomInfo.textContent = state.roomId ? state.roomId : 'OFFLINE';
     els.reconnectingOverlay.style.display = state.reconnecting ? 'flex' : 'none';
+    container.classList.toggle('connected-page', screen === 'connected');
 
     if (screen !== currentScreen) {
       currentScreen = screen;
