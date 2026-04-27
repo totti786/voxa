@@ -1,6 +1,6 @@
 import { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
-import type { PeerInfo, MessageEntry } from '../types.js';
+import type { PeerInfo, ChatMessage, MessageEntry, SystemMessageEntry } from '../types.js';
 import { renderParticipants } from './participants.js';
 import { renderControls } from './controls.js';
 
@@ -37,11 +37,13 @@ interface ConnectedElements {
   controls: HTMLElement;
   canvasCtx: CanvasRenderingContext2D;
   animId: number | null;
-  chatPanel: HTMLElement;
+  chatBar: HTMLElement;
+  chatDropdown: HTMLElement;
   chatMessages: HTMLElement;
   chatInput: HTMLInputElement;
   lastMessageCount: number;
   _cleanupKeyboard?: () => void;
+  _cleanupChat?: () => void;
 }
 
 interface OfflineElements {
@@ -182,6 +184,9 @@ function startParticles(els: Elements): void {
 function clearConnected(els: Elements): void {
   if (els.connectedScreen?._cleanupKeyboard) {
     els.connectedScreen._cleanupKeyboard();
+  }
+  if (els.connectedScreen?._cleanupChat) {
+    els.connectedScreen._cleanupChat();
   }
   if (els.connectedScreen?.animId) {
     cancelAnimationFrame(els.connectedScreen.animId);
@@ -467,17 +472,35 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   participants.className = 'participants-ring';
   orbWrap.appendChild(participants);
 
-  const chatPanel = document.createElement('div');
-  chatPanel.className = 'chat-panel';
+  // Chat bar
+  const chatBar = document.createElement('div');
+  chatBar.className = 'chat-bar';
 
-  const chatHeader = document.createElement('div');
-  chatHeader.className = 'chat-header';
-  chatHeader.textContent = 'Chat';
-  chatPanel.appendChild(chatHeader);
+  const chatIcon = document.createElement('span');
+  chatIcon.className = 'chat-bar-icon';
+  chatIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+
+  const chatPreview = document.createElement('span');
+  chatPreview.className = 'chat-bar-preview empty';
+  chatPreview.textContent = 'No messages yet';
+
+  const chatChevron = document.createElement('span');
+  chatChevron.className = 'chat-bar-chevron';
+  chatChevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  chatBar.appendChild(chatIcon);
+  chatBar.appendChild(chatPreview);
+  chatBar.appendChild(chatChevron);
+  layout.appendChild(chatBar);
+
+  // Chat dropdown
+  const chatDropdown = document.createElement('div');
+  chatDropdown.className = 'chat-dropdown';
+  chatDropdown.style.display = 'none';
 
   const chatMessages = document.createElement('div');
   chatMessages.className = 'chat-messages';
-  chatPanel.appendChild(chatMessages);
+  chatDropdown.appendChild(chatMessages);
 
   const chatInputWrap = document.createElement('div');
   chatInputWrap.className = 'chat-input-wrap';
@@ -497,8 +520,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   };
   chatInputWrap.appendChild(chatSendBtn);
 
-  chatPanel.appendChild(chatInputWrap);
-  layout.appendChild(chatPanel);
+  chatDropdown.appendChild(chatInputWrap);
+  layout.appendChild(chatDropdown);
 
   chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
@@ -506,6 +529,39 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       chatInput.value = '';
     }
   });
+
+  let isDropdownOpen = false;
+
+  function openDropdown() {
+    isDropdownOpen = true;
+    chatDropdown.style.display = 'flex';
+    chatChevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="18 15 12 9 6 15"/></svg>';
+    chatBar.classList.remove('new-message');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function closeDropdown() {
+    isDropdownOpen = false;
+    chatDropdown.style.display = 'none';
+    chatChevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>';
+  }
+
+  chatBar.onclick = () => {
+    if (isDropdownOpen) {
+      closeDropdown();
+    } else {
+      openDropdown();
+    }
+  };
+
+  function onDocumentClick(e: MouseEvent) {
+    if (!isDropdownOpen) return;
+    const target = e.target as Node;
+    if (!chatBar.contains(target) && !chatDropdown.contains(target)) {
+      closeDropdown();
+    }
+  }
+  document.addEventListener('click', onDocumentClick);
 
   const controls = document.createElement('div');
   container.appendChild(controls);
@@ -576,7 +632,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   const connected: ConnectedElements = {
     orbWrap, orbRing: ring, orbCanvas: canvas, orbLabel, participants, controls,
-    canvasCtx: ctx, animId, chatPanel, chatMessages, chatInput, lastMessageCount: 0,
+    canvasCtx: ctx, animId, chatBar, chatDropdown, chatMessages, chatInput, lastMessageCount: 0,
   };
 
   orbWrap.onpointerdown = (e) => {
@@ -647,6 +703,10 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('keyup', onKeyUp);
   };
+
+  (connected as any)._cleanupChat = () => {
+    document.removeEventListener('click', onDocumentClick);
+  };
 }
 
 function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp): void {
@@ -677,7 +737,30 @@ function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp)
   if (state.messages.length !== els.lastMessageCount) {
     els.lastMessageCount = state.messages.length;
     renderChatMessages(els.chatMessages, state.messages, state.peers, state.displayName);
-    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+    // Update preview bar with latest message
+    const latest = state.messages[state.messages.length - 1];
+    const previewEl = els.chatBar.querySelector('.chat-bar-preview') as HTMLElement;
+    if (previewEl && latest) {
+      if (latest.type === 'chat') {
+        const peer = state.peers.find((p) => p.id === latest.peer_id);
+        const name = latest.peer_id === 'self' ? state.displayName : (peer?.display_name ?? 'Unknown');
+        previewEl.textContent = `${name}: ${latest.text}`;
+        previewEl.classList.remove('empty');
+      } else {
+        previewEl.textContent = getSystemMessageText(latest, state.peers, state.displayName);
+        previewEl.classList.remove('empty');
+      }
+    }
+    // Trigger new-message glow if dropdown is closed
+    if (els.chatDropdown.style.display === 'none' && latest && latest.type === 'chat') {
+      els.chatBar.classList.add('new-message');
+      setTimeout(() => els.chatBar.classList.remove('new-message'), 1500);
+    }
+    // Auto-scroll only if at bottom
+    const isAtBottom = els.chatMessages.scrollHeight - els.chatMessages.scrollTop <= els.chatMessages.clientHeight + 10;
+    if (isAtBottom) {
+      els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+    }
   }
 }
 
@@ -692,34 +775,59 @@ function formatTime(timestamp: number): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function renderChatMessages(container: HTMLElement, messages: MessageEntry[], peers: PeerInfo[], ownDisplayName: string): void {
+function getSystemMessageText(msg: SystemMessageEntry, peers: PeerInfo[], ownDisplayName: string): string {
+  const peer = peers.find((p) => p.id === msg.peer_id);
+  const name = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
+  switch (msg.event) {
+    case 'peer_joined': return `${name} joined the room`;
+    case 'peer_left': return `${name} left the room`;
+    case 'peer_mute': return `${name} muted themselves`;
+    case 'peer_force_muted': return `${name} was force-muted`;
+    case 'ownership_changed': return `${name} is now the room owner`;
+    case 'kicked': return `${name} was kicked`;
+    default: return 'Unknown event';
+  }
+}
+
+function renderChatMessages(
+  container: HTMLElement,
+  messages: MessageEntry[],
+  peers: PeerInfo[],
+  ownDisplayName: string
+): void {
   container.innerHTML = '';
   for (const msg of messages) {
-    if (msg.type !== 'chat') continue;
-    const peer = peers.find((p) => p.id === msg.peer_id);
-    const displayName = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
+    if (msg.type === 'system') {
+      const row = document.createElement('div');
+      row.className = 'chat-system-message';
+      row.textContent = getSystemMessageText(msg, peers, ownDisplayName);
+      container.appendChild(row);
+    } else {
+      const peer = peers.find((p) => p.id === msg.peer_id);
+      const displayName = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
 
-    const row = document.createElement('div');
-    row.className = 'chat-message';
+      const row = document.createElement('div');
+      row.className = 'chat-message';
 
-    const header = document.createElement('div');
-    header.className = 'chat-message-header';
+      const header = document.createElement('div');
+      header.className = 'chat-message-header';
 
-    const name = document.createElement('span');
-    name.className = 'chat-message-name';
-    name.textContent = displayName;
+      const name = document.createElement('span');
+      name.className = 'chat-message-name';
+      name.textContent = displayName;
 
-    const time = document.createElement('span');
-    time.className = 'chat-message-time';
-    time.textContent = formatTime(msg.timestamp);
+      const time = document.createElement('span');
+      time.className = 'chat-message-time';
+      time.textContent = formatTime(msg.timestamp);
 
-    header.append(name, time);
+      header.append(name, time);
 
-    const body = document.createElement('div');
-    body.className = 'chat-message-body';
-    body.textContent = msg.text;
+      const body = document.createElement('div');
+      body.className = 'chat-message-body';
+      body.textContent = msg.text;
 
-    row.append(header, body);
-    container.appendChild(row);
+      row.append(header, body);
+      container.appendChild(row);
+    }
   }
 }
