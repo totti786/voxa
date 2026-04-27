@@ -1350,3 +1350,70 @@ body {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
 }
+
+@media (max-width: 768px) {
+  .connected-page .header {
+    padding: 12px 16px;
+  }
+
+  .connected-page .header h1 {
+    font-size: 17px;
+  }
+
+  .connected-page .room-info {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+  }
+
+  .connected-page .main {
+    justify-content: flex-start;
+    padding: 14px 14px 18px;
+  }
+
+  .connected-page .connected-layout {
+    gap: 20px;
+    transform: scale(0.95);
+    transform-origin: top center;
+  }
+
+  .connected-page .chat-wrap {
+    width: min(100%, 380px);
+    padding-bottom: 10px;
+  }
+
+  .connected-page .chat-bar {
+    width: min(100%, 380px);
+    height: 42px;
+    padding: 0 12px;
+  }
+
+  .connected-page .orb-container {
+    width: 304px;
+    height: 304px;
+  }
+
+  .connected-page .orb-canvas {
+    inset: 26px;
+  }
+
+  .connected-page .orb-label {
+    bottom: -36px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+  }
+
+  .connected-page .control-arc {
+    width: 308px;
+    height: 154px;
+  }
+
+  .connected-page .control-extras {
+    bottom: -68px;
+    gap: 16px;
+  }
+
+  .connected-page .volume-tooltip {
+    min-width: 132px;
+    padding: 10px 12px;
+  }
+}
