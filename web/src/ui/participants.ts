@@ -52,7 +52,12 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
   if (prevCloser) {
     document.removeEventListener('pointerdown', prevCloser);
   }
-  container.innerHTML = '';
+
+  const existingOrbs = new Map<string, HTMLElement>();
+  container.querySelectorAll('.peer-orb').forEach((orb) => {
+    const peerId = (orb as HTMLElement).dataset.peerId;
+    if (peerId) existingOrbs.set(peerId, orb as HTMLElement);
+  });
 
   const radius = 180;
   const centerX = 160;
@@ -93,10 +98,7 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     const x = centerX + Math.cos(angle) * radius - 32;
     const y = centerY + Math.sin(angle) * radius - 32;
 
-    const orb = document.createElement('div');
-    orb.className = 'peer-orb' + (peer.speaking ? ' speaking' : '') + (peer.muted ? ' muted' : '');
-    orb.style.left = `${x}px`;
-    orb.style.top = `${y}px`;
+    const existingOrb = existingOrbs.get(peer.id);
 
     const initials = peer.display_name
       .split(' ')
@@ -126,121 +128,216 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       `;
     }
 
-    orb.innerHTML = `
-      <span class="peer-initials">${initials}</span>
-      ${peer.is_owner ? `<span class="orb-badge orb-crown">${crownSvg}</span>` : ''}
-      ${peer.force_muted ? `<span class="orb-badge orb-lock">${lockSvg}</span>` : ''}
-      <span class="peer-status"></span>
-      <span class="volume-tooltip">
-        <span class="tooltip-name">${escapeHtml(peer.display_name)}</span>
-        ${adminButtonsHtml}
-        <input type="range" class="peer-volume-slider" min="0" max="200" value="${Math.round((app.peerVolumes.get(peer.id) ?? 1) * 100)}">
-      </span>
-    `;
+    if (!existingOrb) {
+      const orb = document.createElement('div');
+      orb.dataset.peerId = peer.id;
+      orb.className = 'peer-orb' + (peer.speaking ? ' speaking' : '') + (peer.muted ? ' muted' : '');
+      orb.style.left = `${x}px`;
+      orb.style.top = `${y}px`;
 
-    const volSlider = orb.querySelector('.peer-volume-slider') as HTMLInputElement;
-    setSliderValue(volSlider, (app.peerVolumes.get(peer.id) ?? 1) * 100);
-    volSlider.oninput = (e) => {
-      const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
-      setSliderValue(volSlider, val * 100);
-      app.setPeerVolume(peer.id, val);
-    };
-    attachWheel(volSlider, 5);
+      orb.innerHTML = `
+        <span class="peer-initials">${initials}</span>
+        ${peer.is_owner ? `<span class="orb-badge orb-crown">${crownSvg}</span>` : ''}
+        ${peer.force_muted ? `<span class="orb-badge orb-lock">${lockSvg}</span>` : ''}
+        <span class="peer-status"></span>
+        <span class="volume-tooltip">
+          <span class="tooltip-name">${escapeHtml(peer.display_name)}</span>
+          ${adminButtonsHtml}
+          <input type="range" class="peer-volume-slider" min="0" max="200" value="${Math.round((app.peerVolumes.get(peer.id) ?? 1) * 100)}">
+        </span>
+      `;
 
-    if (isLocalOwner && !isSelf) {
-      const kickBtn = orb.querySelector('.admin-kick');
-      if (kickBtn) {
-        kickBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          app.kickPeer(peer.id);
-        });
-      }
-      const muteBtn = orb.querySelector('.admin-mute');
-      if (muteBtn) {
-        muteBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          app.forceMutePeer(peer.id, !peer.force_muted);
-        });
-      }
-    }
+      const volSlider = orb.querySelector('.peer-volume-slider') as HTMLInputElement;
+      setSliderValue(volSlider, (app.peerVolumes.get(peer.id) ?? 1) * 100);
+      volSlider.oninput = (e) => {
+        const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+        setSliderValue(volSlider, val * 100);
+        app.setPeerVolume(peer.id, val);
+      };
+      attachWheel(volSlider, 5);
 
-    let isDragging = false;
-    let dragHasMoved = false;
-    let pointerStartX = 0;
-    let pointerStartY = 0;
-    let pointerStartTime = 0;
-
-    function isInsideTooltip(e: PointerEvent): boolean {
-      return !!(e.target as HTMLElement).closest('.volume-tooltip');
-    }
-
-    orb.addEventListener('pointerdown', (e) => {
-      if (isInsideTooltip(e)) return;
-      pointerStartX = e.clientX;
-      pointerStartY = e.clientY;
-      pointerStartTime = Date.now();
-      dragHasMoved = false;
-    });
-
-    orb.addEventListener('pointermove', (e) => {
-      if (!dragHasMoved && !isDragging) {
-        const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
-        if (moveDist > 6) {
-          dragHasMoved = true;
-          isDragging = true;
-          orb.setPointerCapture(e.pointerId);
-          orb.classList.add('dragging');
-        }
-      }
-      if (!isDragging) return;
-      const cx = cachedCx;
-      const cy = cachedCy;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const newAngle = Math.atan2(dy, dx);
-
-      const newX = centerX + Math.cos(newAngle) * radius - 32;
-      const newY = centerY + Math.sin(newAngle) * radius - 32;
-      orb.style.left = `${newX}px`;
-      orb.style.top = `${newY}px`;
-
-      storedAngles.set(peer.id, newAngle);
-    });
-
-    orb.addEventListener('pointerup', (e) => {
-      if (!isDragging) {
-        const elapsed = Date.now() - pointerStartTime;
-        const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
-        if (elapsed < 350 && moveDist < 10) {
-          const isVisible = orb.classList.contains('tooltip-visible');
-          container.querySelectorAll('.peer-orb.tooltip-visible').forEach((o) => {
-            if (o !== orb) o.classList.remove('tooltip-visible');
+      if (isLocalOwner && !isSelf) {
+        const kickBtn = orb.querySelector('.admin-kick');
+        if (kickBtn) {
+          kickBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            app.kickPeer(peer.id);
           });
-          orb.classList.toggle('tooltip-visible', !isVisible);
         }
-        return;
+        const muteBtn = orb.querySelector('.admin-mute');
+        if (muteBtn) {
+          muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            app.forceMutePeer(peer.id, !peer.force_muted);
+          });
+        }
       }
-      isDragging = false;
-      dragHasMoved = false;
-      orb.classList.remove('dragging');
-      saveOrbAngles(roomId, storedAngles);
-    });
 
-    orb.addEventListener('pointerleave', (e) => {
-      if (e.pointerType === 'touch') return;
-      if (!isDragging) return;
-      isDragging = false;
-      dragHasMoved = false;
-      orb.classList.remove('dragging');
-      saveOrbAngles(roomId, storedAngles);
-    });
+      let isDragging = false;
+      let dragHasMoved = false;
+      let pointerStartX = 0;
+      let pointerStartY = 0;
+      let pointerStartTime = 0;
 
-    volSlider.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-    });
+      function isInsideTooltip(e: PointerEvent): boolean {
+        return !!(e.target as HTMLElement).closest('.volume-tooltip');
+      }
 
-    container.appendChild(orb);
+      orb.addEventListener('pointerdown', (e) => {
+        if (isInsideTooltip(e)) return;
+        pointerStartX = e.clientX;
+        pointerStartY = e.clientY;
+        pointerStartTime = Date.now();
+        dragHasMoved = false;
+      });
+
+      orb.addEventListener('pointermove', (e) => {
+        if (!dragHasMoved && !isDragging) {
+          const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
+          if (moveDist > 6) {
+            dragHasMoved = true;
+            isDragging = true;
+            orb.setPointerCapture(e.pointerId);
+            orb.classList.add('dragging');
+          }
+        }
+        if (!isDragging) return;
+        const cx = cachedCx;
+        const cy = cachedCy;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const newAngle = Math.atan2(dy, dx);
+
+        const newX = centerX + Math.cos(newAngle) * radius - 32;
+        const newY = centerY + Math.sin(newAngle) * radius - 32;
+        orb.style.left = `${newX}px`;
+        orb.style.top = `${newY}px`;
+
+        storedAngles.set(peer.id, newAngle);
+      });
+
+      orb.addEventListener('pointerup', (e) => {
+        if (!isDragging) {
+          const elapsed = Date.now() - pointerStartTime;
+          const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
+          if (elapsed < 350 && moveDist < 10) {
+            const isVisible = orb.classList.contains('tooltip-visible');
+            container.querySelectorAll('.peer-orb.tooltip-visible').forEach((o) => {
+              if (o !== orb) o.classList.remove('tooltip-visible');
+            });
+            orb.classList.toggle('tooltip-visible', !isVisible);
+          }
+          return;
+        }
+        isDragging = false;
+        dragHasMoved = false;
+        orb.classList.remove('dragging');
+        saveOrbAngles(roomId, storedAngles);
+      });
+
+      orb.addEventListener('pointerleave', (e) => {
+        if (e.pointerType === 'touch') return;
+        if (!isDragging) return;
+        isDragging = false;
+        dragHasMoved = false;
+        orb.classList.remove('dragging');
+        saveOrbAngles(roomId, storedAngles);
+      });
+
+      volSlider.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+
+      container.appendChild(orb);
+    } else {
+      existingOrbs.delete(peer.id);
+
+      existingOrb.classList.toggle('speaking', peer.speaking);
+      existingOrb.classList.toggle('muted', peer.muted);
+
+      const initialsEl = existingOrb.querySelector('.peer-initials');
+      if (initialsEl) initialsEl.textContent = initials;
+
+      const crownEl = existingOrb.querySelector('.orb-crown');
+      if (peer.is_owner && !crownEl) {
+        const newCrown = document.createElement('span');
+        newCrown.className = 'orb-badge orb-crown';
+        newCrown.innerHTML = crownSvg;
+        const statusEl = existingOrb.querySelector('.peer-status');
+        if (statusEl) {
+          existingOrb.insertBefore(newCrown, statusEl);
+        } else {
+          existingOrb.appendChild(newCrown);
+        }
+      } else if (!peer.is_owner && crownEl) {
+        crownEl.remove();
+      }
+
+      const lockEl = existingOrb.querySelector('.orb-lock');
+      if (peer.force_muted && !lockEl) {
+        const newLock = document.createElement('span');
+        newLock.className = 'orb-badge orb-lock';
+        newLock.innerHTML = lockSvg;
+        const statusEl = existingOrb.querySelector('.peer-status');
+        if (statusEl) {
+          existingOrb.insertBefore(newLock, statusEl);
+        } else {
+          existingOrb.appendChild(newLock);
+        }
+      } else if (!peer.force_muted && lockEl) {
+        lockEl.remove();
+      }
+
+      const tooltipNameEl = existingOrb.querySelector('.tooltip-name');
+      if (tooltipNameEl) tooltipNameEl.textContent = peer.display_name;
+
+      const oldAdmin = existingOrb.querySelector('.admin-actions');
+      if (isLocalOwner && !isSelf) {
+        if (oldAdmin) oldAdmin.remove();
+        const adminDiv = document.createElement('div');
+        adminDiv.className = 'admin-actions';
+        adminDiv.innerHTML = `
+          <button class="admin-btn admin-kick" title="Kick">${kickIconSvg}</button>
+          <button class="admin-btn admin-mute" title="${peer.force_muted ? 'Unmute' : 'Force mute'}">${muteIconSvg}</button>
+        `;
+        const tooltip = existingOrb.querySelector('.volume-tooltip');
+        const volSlider = existingOrb.querySelector('.peer-volume-slider');
+        if (tooltip && volSlider) {
+          tooltip.insertBefore(adminDiv, volSlider);
+        } else if (tooltip) {
+          tooltip.appendChild(adminDiv);
+        }
+
+        const kickBtn = adminDiv.querySelector('.admin-kick');
+        if (kickBtn) {
+          kickBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            app.kickPeer(peer.id);
+          });
+        }
+        const muteBtn = adminDiv.querySelector('.admin-mute');
+        if (muteBtn) {
+          muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            app.forceMutePeer(peer.id, !peer.force_muted);
+          });
+        }
+      } else if (oldAdmin) {
+        oldAdmin.remove();
+      }
+
+      const volSlider = existingOrb.querySelector('.peer-volume-slider') as HTMLInputElement;
+      if (volSlider) {
+        setSliderValue(volSlider, (app.peerVolumes.get(peer.id) ?? 1) * 100);
+      }
+    }
   });
+
+  for (const [peerId, orb] of existingOrbs) {
+    if (!currentPeerIds.has(peerId)) {
+      orb.remove();
+    }
+  }
 
   const closeTooltips = (e: PointerEvent) => {
     if (!(e.target as HTMLElement).closest('.peer-orb')) {
