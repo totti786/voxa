@@ -1,6 +1,6 @@
 import { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
-import type { PeerInfo } from '../types.js';
+import type { PeerInfo, MessageEntry } from '../types.js';
 import { renderParticipants } from './participants.js';
 import { renderControls } from './controls.js';
 
@@ -692,9 +692,10 @@ function formatTime(timestamp: number): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function renderChatMessages(container: HTMLElement, messages: Array<{ peer_id: string; text: string; timestamp: number }>, peers: PeerInfo[], ownDisplayName: string): void {
+function renderChatMessages(container: HTMLElement, messages: MessageEntry[], peers: PeerInfo[], ownDisplayName: string): void {
   container.innerHTML = '';
   for (const msg of messages) {
+    if (msg.type !== 'chat') continue;
     const peer = peers.find((p) => p.id === msg.peer_id);
     const displayName = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
 

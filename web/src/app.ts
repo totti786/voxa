@@ -5,7 +5,7 @@ import { captureAudio, stopCapture, enumerateAudioDevices } from './audio/captur
 import { createAudioGraph, closeAudioGraph, setInputGain } from './audio/processing.js';
 import { VADAnalyzer } from './audio/vad.js';
 import { Store } from './state/store.js';
-import type { PeerInfo, ServerMessage, RoomSummary, ChatMessage } from './types.js';
+import type { PeerInfo, ServerMessage, RoomSummary, ChatMessage, MessageEntry } from './types.js';
 
 export interface AppState {
   connected: boolean;
@@ -26,7 +26,7 @@ export interface AppState {
   roomsLoading: boolean;
   joinError: string | null;
   selectedDeviceId: string | null;
-  messages: ChatMessage[];
+  messages: MessageEntry[];
   selfPeerId: string | null;
   localIsOwner: boolean;
   localForceMuted: boolean;

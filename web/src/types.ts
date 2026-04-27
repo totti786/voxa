@@ -64,6 +64,23 @@ export interface ChatMessage extends SignalingMessage {
   timestamp: number;
 }
 
+export interface ChatMessageEntry {
+  type: 'chat';
+  peer_id: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface SystemMessageEntry {
+  type: 'system';
+  event: 'peer_joined' | 'peer_left' | 'peer_mute' | 'peer_force_muted' | 'kicked' | 'ownership_changed';
+  peer_id: string;
+  actor_id?: string;
+  timestamp: number;
+}
+
+export type MessageEntry = ChatMessageEntry | SystemMessageEntry;
+
 export interface ClientChatMessage extends SignalingMessage {
   type: 'chat';
   text: string;
