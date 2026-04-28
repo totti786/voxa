@@ -31,6 +31,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+#app,
+#app * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 #app {
   height: 100vh;
   display: flex;
@@ -93,6 +100,10 @@ body {
   align-items: center;
   justify-content: center;
   padding: 20px;
+}
+
+.connected-page .main {
+  padding-top: 34px;
 }
 
 .orb-container {
@@ -892,7 +903,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
 }
 
 .extra-slider span {
@@ -902,6 +913,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .extra-slider input[type="range"] {
@@ -1367,7 +1379,7 @@ body {
 
   .connected-page .main {
     justify-content: flex-start;
-    padding: 14px 14px 18px;
+    padding: 26px 14px 18px;
   }
 
   .connected-page .connected-layout {
