@@ -122,7 +122,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
 
   const centerX = 160;
   const centerY = -40;
-  const radius = 150;
+  const radius = 136;
   const btnSize = 52;
   const halfBtn = btnSize / 2;
 
@@ -133,7 +133,11 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
     };
   }
 
-  const micPos = getPos(35 * Math.PI / 180);
+  const micAngle = 30 * Math.PI / 180;
+  const pttAngle = 55 * Math.PI / 180;
+  const deafenAngle = 125 * Math.PI / 180;
+  const leaveAngle = 150 * Math.PI / 180;
+  const micPos = getPos(micAngle);
   const micBtn = document.createElement('button');
   micBtn.dataset.role = 'mic';
   if (state.localForceMuted) {
@@ -151,7 +155,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   micBtn.style.top = `${micPos.top}px`;
   container.appendChild(micBtn);
 
-  const deafenPos = getPos(120 * Math.PI / 180);
+  const deafenPos = getPos((180 - pttAngle * 180 / Math.PI) * Math.PI / 180);
   const deafenBtn = document.createElement('button');
   deafenBtn.dataset.role = 'deafen';
   deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
@@ -187,7 +191,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   gainWrap.append(gainLabel, gainSlider);
   container.appendChild(gainWrap);
 
-  const pttPos = getPos(60 * Math.PI / 180);
+  const pttPos = getPos(pttAngle);
   const pttBtn = document.createElement('button');
   pttBtn.dataset.role = 'ptt';
   pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
@@ -198,7 +202,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   pttBtn.onclick = () => app.togglePtt();
   container.appendChild(pttBtn);
 
-  const leavePos = getPos(145 * Math.PI / 180);
+  const leavePos = getPos(leaveAngle);
   const leaveBtn = document.createElement('button');
   leaveBtn.dataset.role = 'leave';
   leaveBtn.className = 'control-btn danger';
