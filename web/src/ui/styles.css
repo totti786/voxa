@@ -20,8 +20,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
+  width: 100%;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -39,10 +41,14 @@ body {
 }
 
 #app {
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  position: relative;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .particle-canvas {
@@ -95,10 +101,12 @@ body {
   position: relative;
   z-index: 5;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   padding: 20px;
 }
 
@@ -1427,5 +1435,52 @@ body {
   .connected-page .volume-tooltip {
     min-width: 132px;
     padding: 10px 12px;
+  }
+}
+
+@media (max-width: 768px) and (max-height: 760px) {
+  .connected-page .main {
+    padding: 14px 12px;
+  }
+
+  .connected-page .connected-layout {
+    gap: 10px;
+    transform: scale(0.88);
+  }
+
+  .connected-page .chat-wrap {
+    padding-bottom: 6px;
+  }
+
+  .connected-page .chat-bar {
+    height: 40px;
+  }
+
+  .connected-page .orb-container {
+    width: 276px;
+    height: 276px;
+  }
+
+  .connected-page .orb-canvas {
+    inset: 18px;
+  }
+
+  .connected-page .orb-label {
+    bottom: -30px;
+  }
+
+  .connected-page .control-arc {
+    width: 284px;
+    height: 136px;
+  }
+
+  .connected-page .control-extras {
+    bottom: -52px;
+    gap: 12px;
+  }
+
+  .connected-page .volume-tooltip {
+    min-width: 120px;
+    padding: 8px 10px;
   }
 }
