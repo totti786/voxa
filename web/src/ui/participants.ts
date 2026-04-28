@@ -59,7 +59,7 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     if (peerId) existingOrbs.set(peerId, orb as HTMLElement);
   });
 
-  const radius = 180;
+  const radius = 170;
   const centerX = 160;
   const centerY = 160;
 
@@ -95,8 +95,8 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       const unpositionedIndex = unpositionedPeers.findIndex((p) => p.id === peer.id);
       angle = distributeAnglesAvoidingBottom(unpositionedIndex, unpositionedPeers.length);
     }
-    const x = centerX + Math.cos(angle) * radius - 32;
-    const y = centerY + Math.sin(angle) * radius - 32;
+    const x = centerX + Math.cos(angle) * radius - 30;
+    const y = centerY + Math.sin(angle) * radius - 30;
 
     const existingOrb = existingOrbs.get(peer.id);
 

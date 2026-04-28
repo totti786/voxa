@@ -210,13 +210,13 @@ body {
 
 .peer-orb {
   position: absolute;
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
   background: var(--bg-glass);
@@ -239,7 +239,7 @@ body {
 .peer-orb::after {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: -3px;
   border-radius: 50%;
   border: 2px solid transparent;
   transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -266,10 +266,10 @@ body {
 
 .peer-orb .peer-status {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 16px;
-  height: 16px;
+  bottom: -1px;
+  right: -1px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--accent-amber);
   border: 2px solid var(--bg-deep);
@@ -985,7 +985,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 55px;
+  gap: 44px;
   width: 100%;
   max-width: 1200px;
 }
@@ -1379,12 +1379,12 @@ body {
 
   .connected-page .main {
     justify-content: flex-start;
-    padding: 26px 14px 18px;
+    padding: 24px 14px 24px;
   }
 
   .connected-page .connected-layout {
-    gap: 20px;
-    transform: scale(0.95);
+    gap: 18px;
+    transform: scale(0.94);
     transform-origin: top center;
   }
 
@@ -1400,12 +1400,12 @@ body {
   }
 
   .connected-page .orb-container {
-    width: 304px;
-    height: 304px;
+    width: 300px;
+    height: 300px;
   }
 
   .connected-page .orb-canvas {
-    inset: 26px;
+    inset: 24px;
   }
 
   .connected-page .orb-label {
@@ -1415,13 +1415,13 @@ body {
   }
 
   .connected-page .control-arc {
-    width: 308px;
-    height: 154px;
+    width: 304px;
+    height: 150px;
   }
 
   .connected-page .control-extras {
-    bottom: -68px;
-    gap: 16px;
+    bottom: -64px;
+    gap: 14px;
   }
 
   .connected-page .volume-tooltip {
