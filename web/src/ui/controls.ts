@@ -95,18 +95,11 @@ function createSliderWrap(className: string, role: string, min: string, max: str
 function createControlScaffold(container: HTMLElement): ControlElements {
   container.innerHTML = '';
 
-  const leftRail = document.createElement('div');
-  leftRail.className = 'control-rail control-rail-left';
   const deafenBtn = createButton('deafen');
-  const leaveBtn = createButton('leave');
-  leftRail.append(deafenBtn, leaveBtn);
-
-  const rightRail = document.createElement('div');
-  rightRail.className = 'control-rail control-rail-right';
   const micBtn = createButton('mic');
+  const leaveBtn = createButton('leave');
   const { wrap: gainWrap, label: gainLabel, slider: gainSlider } = createSliderWrap('control-slider', 'input-gain', '0', '200');
   const pttBtn = createButton('ptt');
-  rightRail.append(micBtn, gainWrap, pttBtn);
 
   const extras = document.createElement('div');
   extras.className = 'control-extras';
@@ -118,7 +111,7 @@ function createControlScaffold(container: HTMLElement): ControlElements {
   attachWheel(outputVolSlider, 5);
   attachWheel(gateSlider, 2);
 
-  container.append(leftRail, rightRail, extras);
+  container.append(deafenBtn, micBtn, leaveBtn, gainWrap, pttBtn, extras);
 
   return {
     micBtn,

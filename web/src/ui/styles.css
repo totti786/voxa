@@ -499,7 +499,13 @@ body {
 }
 
 .control-arc {
-  display: contents;
+  position: relative;
+  z-index: 10;
+  width: min(100%, 392px);
+  height: 238px;
+  margin: 0 auto;
+  animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
 }
 
 @keyframes arc-enter {
@@ -507,33 +513,13 @@ body {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.control-rail,
 .control-extras {
   opacity: 0;
   animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-.control-rail {
-  width: 84px;
-  min-height: 252px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  z-index: 10;
-}
-
-.control-rail-left {
-  grid-area: left;
-}
-
-.control-rail-right {
-  grid-area: right;
-}
-
 .control-btn {
-  position: relative;
+  position: absolute;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -547,6 +533,26 @@ body {
   justify-content: center;
   padding: 0;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.control-btn[data-role="deafen"] {
+  top: 18px;
+  left: 78px;
+}
+
+.control-btn[data-role="mic"] {
+  top: 18px;
+  right: 78px;
+}
+
+.control-btn[data-role="leave"] {
+  top: 90px;
+  left: 30px;
+}
+
+.control-btn[data-role="ptt"] {
+  top: 90px;
+  right: 30px;
 }
 
 .control-btn svg {
@@ -597,6 +603,10 @@ body {
 }
 
 .control-slider {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -930,9 +940,11 @@ body {
 }
 
 .control-extras {
-  grid-area: extras;
-  width: 100%;
-  max-width: 412px;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(100%, 360px);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -987,15 +999,12 @@ body {
 
 .connected-stage {
   width: min(100%, 540px);
-  display: grid;
-  grid-template-columns: 84px minmax(280px, 320px) 84px;
-  grid-template-areas:
-    "left orb right"
-    "extras extras extras";
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   align-items: center;
   justify-content: center;
-  column-gap: 18px;
-  row-gap: 28px;
+  gap: 34px;
 }
 
 .chat-wrap {
@@ -1406,9 +1415,7 @@ body {
 
   .connected-page .connected-stage {
     width: min(100%, 448px);
-    grid-template-columns: 72px minmax(232px, 280px) 72px;
-    column-gap: 12px;
-    row-gap: 20px;
+    gap: 28px;
   }
 
   .connected-page .orb-container {
@@ -1422,14 +1429,29 @@ body {
     letter-spacing: 1.5px;
   }
 
-  .connected-page .control-rail {
-    width: 72px;
-    min-height: 220px;
-  }
-
   .connected-page .control-btn {
     width: 50px;
     height: 50px;
+  }
+
+  .connected-page .control-btn[data-role="deafen"] {
+    top: 14px;
+    left: 70px;
+  }
+
+  .connected-page .control-btn[data-role="mic"] {
+    top: 14px;
+    right: 70px;
+  }
+
+  .connected-page .control-btn[data-role="leave"] {
+    top: 82px;
+    left: 28px;
+  }
+
+  .connected-page .control-btn[data-role="ptt"] {
+    top: 82px;
+    right: 28px;
   }
 
   .connected-page .control-btn svg {
@@ -1437,7 +1459,13 @@ body {
     height: 20px;
   }
 
+  .connected-page .control-arc {
+    width: min(100%, 360px);
+    height: 220px;
+  }
+
   .connected-page .control-slider {
+    top: 58px;
     width: 62px;
     min-height: 150px;
     padding: 12px 8px;
@@ -1448,7 +1476,7 @@ body {
   }
 
   .connected-page .control-extras {
-    max-width: 360px;
+    width: min(100%, 330px);
     gap: 12px;
   }
 
@@ -1481,9 +1509,7 @@ body {
 
   .connected-page .connected-stage {
     width: min(100%, 420px);
-    grid-template-columns: 66px minmax(216px, 252px) 66px;
-    column-gap: 8px;
-    row-gap: 16px;
+    gap: 22px;
   }
 
   .connected-page .orb-container {
@@ -1495,14 +1521,29 @@ body {
     bottom: -30px;
   }
 
-  .connected-page .control-rail {
-    width: 66px;
-    min-height: 198px;
-  }
-
   .connected-page .control-btn {
     width: 46px;
     height: 46px;
+  }
+
+  .connected-page .control-btn[data-role="deafen"] {
+    top: 10px;
+    left: 62px;
+  }
+
+  .connected-page .control-btn[data-role="mic"] {
+    top: 10px;
+    right: 62px;
+  }
+
+  .connected-page .control-btn[data-role="leave"] {
+    top: 74px;
+    left: 24px;
+  }
+
+  .connected-page .control-btn[data-role="ptt"] {
+    top: 74px;
+    right: 24px;
   }
 
   .connected-page .control-btn svg {
@@ -1510,7 +1551,13 @@ body {
     height: 18px;
   }
 
+  .connected-page .control-arc {
+    width: min(100%, 328px);
+    height: 204px;
+  }
+
   .connected-page .control-slider {
+    top: 52px;
     width: 58px;
     min-height: 136px;
     padding: 10px 7px;
@@ -1521,7 +1568,7 @@ body {
   }
 
   .connected-page .control-extras {
-    max-width: 332px;
+    width: min(100%, 302px);
     gap: 10px;
   }
 
