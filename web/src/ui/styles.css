@@ -492,7 +492,7 @@ body {
   position: relative;
   z-index: 10;
   width: 320px;
-  height: 160px;
+  height: 148px;
   margin: 0 auto;
   animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   opacity: 0;
@@ -587,7 +587,7 @@ body {
 .control-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 100px;
+  width: 108px;
   height: 48px;
   background: transparent;
   cursor: pointer;
@@ -919,7 +919,7 @@ body {
 .extra-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 100px;
+  width: 108px;
   height: 48px;
   background: transparent;
   cursor: pointer;
@@ -985,7 +985,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 44px;
+  gap: 30px;
   width: 100%;
   max-width: 1200px;
 }
@@ -1378,13 +1378,13 @@ body {
   }
 
   .connected-page .main {
-    justify-content: flex-start;
-    padding: 24px 14px 24px;
+    justify-content: center;
+    padding: 20px 14px;
   }
 
   .connected-page .connected-layout {
-    gap: 18px;
-    transform: scale(0.94);
+    gap: 14px;
+    transform: scale(0.95);
     transform-origin: top center;
   }
 
@@ -1400,28 +1400,28 @@ body {
   }
 
   .connected-page .orb-container {
-    width: 300px;
-    height: 300px;
+    width: 296px;
+    height: 296px;
   }
 
   .connected-page .orb-canvas {
-    inset: 24px;
+    inset: 22px;
   }
 
   .connected-page .orb-label {
-    bottom: -36px;
+    bottom: -34px;
     font-size: 10px;
     letter-spacing: 1.5px;
   }
 
   .connected-page .control-arc {
-    width: 304px;
-    height: 150px;
+    width: 300px;
+    height: 144px;
   }
 
   .connected-page .control-extras {
-    bottom: -64px;
-    gap: 14px;
+    bottom: -58px;
+    gap: 18px;
   }
 
   .connected-page .volume-tooltip {

@@ -121,8 +121,8 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   }
 
   const centerX = 160;
-  const centerY = -30;
-  const radius = 160;
+  const centerY = -40;
+  const radius = 150;
   const btnSize = 52;
   const halfBtn = btnSize / 2;
 
