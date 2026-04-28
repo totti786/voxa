@@ -1392,7 +1392,7 @@ body {
 
   .connected-page .connected-layout {
     gap: 14px;
-    transform: scale(0.95);
+    transform: scale(0.97);
     transform-origin: top center;
   }
 
@@ -1423,8 +1423,8 @@ body {
   }
 
   .connected-page .control-arc {
-    width: 300px;
-    height: 144px;
+    width: 312px;
+    height: 148px;
   }
 
   .connected-page .control-extras {
@@ -1445,7 +1445,7 @@ body {
 
   .connected-page .connected-layout {
     gap: 10px;
-    transform: scale(0.88);
+    transform: scale(0.92);
   }
 
   .connected-page .chat-wrap {
@@ -1470,8 +1470,8 @@ body {
   }
 
   .connected-page .control-arc {
-    width: 284px;
-    height: 136px;
+    width: 304px;
+    height: 140px;
   }
 
   .connected-page .control-extras {
