@@ -502,20 +502,8 @@ body {
   position: relative;
   z-index: 10;
   width: min(100%, 392px);
-  height: 300px;
+  height: 360px;
   margin: 0 auto;
-  animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  opacity: 0;
-}
-
-@keyframes arc-enter {
-  from { opacity: 0; transform: translateY(20px) scale(0.9); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.control-extras {
-  opacity: 0;
-  animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .control-btn {
@@ -614,7 +602,7 @@ body {
   gap: 12px;
   z-index: 10;
   width: 72px;
-  min-height: 110px;
+  min-height: 140px;
   padding: 10px 8px;
   border-radius: 28px;
   border: 1px solid var(--border-subtle);
@@ -942,7 +930,7 @@ body {
 .control-extras {
   position: absolute;
   left: 50%;
-  top: 240px;
+  top: 270px;
   transform: translateX(-50%);
   width: min(100%, 360px);
   display: grid;
@@ -1461,13 +1449,13 @@ body {
 
   .connected-page .control-arc {
     width: min(100%, 360px);
-    height: 270px;
+    height: 310px;
   }
 
   .connected-page .control-slider {
     top: 96px;
     width: 62px;
-    min-height: 100px;
+    min-height: 130px;
     padding: 10px 8px;
   }
 
@@ -1478,7 +1466,7 @@ body {
   .connected-page .control-extras {
     width: min(100%, 330px);
     gap: 12px;
-    top: 220px;
+    top: 250px;
   }
 
   .connected-page .extra-slider {
@@ -1554,13 +1542,13 @@ body {
 
   .connected-page .control-arc {
     width: min(100%, 328px);
-    height: 250px;
+    height: 290px;
   }
 
   .connected-page .control-slider {
     top: 92px;
     width: 58px;
-    min-height: 90px;
+    min-height: 120px;
     padding: 8px 6px;
   }
 
@@ -1571,7 +1559,7 @@ body {
   .connected-page .control-extras {
     width: min(100%, 302px);
     gap: 10px;
-    top: 200px;
+    top: 230px;
   }
 
   .connected-page .volume-tooltip {
