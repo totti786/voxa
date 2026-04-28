@@ -52,15 +52,16 @@ interface ControlElements {
 function getControlElements(container: HTMLElement): ControlElements | null {
   const micBtn = container.querySelector('.control-btn[data-role="mic"]') as HTMLButtonElement | null;
   const deafenBtn = container.querySelector('.control-btn[data-role="deafen"]') as HTMLButtonElement | null;
-  const gainWrap = container.querySelector('.control-slider') as HTMLElement | null;
+  const gainWrap = container.querySelector('.control-slider[data-role="input-gain"]') as HTMLElement | null;
   const pttBtn = container.querySelector('.control-btn[data-role="ptt"]') as HTMLButtonElement | null;
   const leaveBtn = container.querySelector('.control-btn[data-role="leave"]') as HTMLButtonElement | null;
   const extras = container.querySelector('.control-extras') as HTMLElement | null;
   if (!micBtn || !deafenBtn || !gainWrap || !pttBtn || !leaveBtn || !extras) return null;
   const gainLabel = gainWrap.querySelector('span') as HTMLElement;
   const gainSlider = gainWrap.querySelector('input') as HTMLInputElement;
-  const outputVolWrap = extras.children[0] as HTMLElement;
-  const gateWrap = extras.children[1] as HTMLElement;
+  const outputVolWrap = extras.querySelector('.extra-slider[data-role="output"]') as HTMLElement | null;
+  const gateWrap = extras.querySelector('.extra-slider[data-role="gate"]') as HTMLElement | null;
+  if (!outputVolWrap || !gateWrap) return null;
   const outputVolLabel = outputVolWrap.querySelector('span') as HTMLElement;
   const outputVolSlider = outputVolWrap.querySelector('input') as HTMLInputElement;
   const gateLabel = gateWrap.querySelector('span') as HTMLElement;
@@ -68,192 +69,128 @@ function getControlElements(container: HTMLElement): ControlElements | null {
   return { micBtn, deafenBtn, gainWrap, gainLabel, gainSlider, pttBtn, leaveBtn, extras, outputVolWrap, outputVolLabel, outputVolSlider, gateWrap, gateLabel, gateSlider };
 }
 
-export function renderControls(container: HTMLElement, app: VoiceApp, state: AppState): void {
-  container.className = 'control-arc';
+function createButton(role: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.className = 'control-btn';
+  button.dataset.role = role;
+  button.type = 'button';
+  return button;
+}
 
-  const els = getControlElements(container);
-  if (els) {
-    if (state.localForceMuted) {
-      els.micBtn.className = 'control-btn locked';
-      els.micBtn.innerHTML = ICONS.lock;
-      els.micBtn.title = 'Force muted by owner';
-      els.micBtn.onclick = () => {};
-    } else {
-      els.micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
-      els.micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
-      els.micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
-      els.micBtn.onclick = () => app.setMute(!state.localMuted);
-    }
+function createSliderWrap(className: string, role: string, min: string, max: string): { wrap: HTMLElement; label: HTMLElement; slider: HTMLInputElement } {
+  const wrap = document.createElement('div');
+  wrap.className = className;
+  wrap.dataset.role = role;
 
-    els.deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
-    els.deafenBtn.innerHTML = state.deafened ? ICONS.headphonesOff : ICONS.headphones;
-    els.deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
-    els.deafenBtn.onclick = () => app.setDeafen(!state.deafened);
+  const label = document.createElement('span');
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = min;
+  slider.max = max;
 
-    els.gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;
-    setSliderValue(els.gainSlider, state.inputGain * 100);
-    els.gainSlider.oninput = (e) => {
-      const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
-      setSliderValue(els.gainSlider, val * 100);
-      app.setInputGain(val);
-    };
+  wrap.append(label, slider);
+  return { wrap, label, slider };
+}
 
-    els.pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
-    els.pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
-    els.pttBtn.onclick = () => app.togglePtt();
+function createControlScaffold(container: HTMLElement): ControlElements {
+  container.innerHTML = '';
 
-    els.outputVolLabel.textContent = `Output ${Math.round(state.outputVolume * 100)}%`;
-    setSliderValue(els.outputVolSlider, state.outputVolume * 100);
-    els.outputVolSlider.oninput = (e) => {
-      const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
-      setSliderValue(els.outputVolSlider, val * 100);
-      app.setOutputVolume(val);
-    };
+  const leftRail = document.createElement('div');
+  leftRail.className = 'control-rail control-rail-left';
+  const deafenBtn = createButton('deafen');
+  const leaveBtn = createButton('leave');
+  leftRail.append(deafenBtn, leaveBtn);
 
-    els.gateLabel.textContent = `Gate ${state.noiseGateThreshold}dB`;
-    setSliderValue(els.gateSlider, state.noiseGateThreshold);
-    els.gateSlider.oninput = (e) => {
-      const val = parseInt((e.target as HTMLInputElement).value, 10);
-      setSliderValue(els.gateSlider, val);
-      app.setNoiseGateThreshold(val);
-    };
-    return;
-  }
-
-  const rect = container.getBoundingClientRect();
-  const arcWidth = rect.width || 320;
-  const scale = arcWidth / 320;
-  const centerX = arcWidth / 2;
-  const centerY = -40 * scale;
-  const radius = 136 * scale;
-  const btnSize = 52;
-  const halfBtn = btnSize / 2;
-
-  function getPos(angle: number) {
-    return {
-      left: centerX + radius * Math.cos(angle) - halfBtn,
-      top: centerY + radius * Math.sin(angle) - halfBtn,
-    };
-  }
-
-  const micAngle = 30 * Math.PI / 180;
-  const pttAngle = 55 * Math.PI / 180;
-  const deafenAngle = 125 * Math.PI / 180;
-  const leaveAngle = 150 * Math.PI / 180;
-  const micPos = getPos(micAngle);
-  const micBtn = document.createElement('button');
-  micBtn.dataset.role = 'mic';
-  if (state.localForceMuted) {
-    micBtn.className = 'control-btn locked';
-    micBtn.innerHTML = ICONS.lock;
-    micBtn.title = 'Force muted by owner';
-    micBtn.onclick = () => {};
-  } else {
-    micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
-    micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
-    micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
-    micBtn.onclick = () => app.setMute(!state.localMuted);
-  }
-  micBtn.style.left = `${micPos.left}px`;
-  micBtn.style.top = `${micPos.top}px`;
-  container.appendChild(micBtn);
-
-  const deafenPos = getPos(deafenAngle);
-  const deafenBtn = document.createElement('button');
-  deafenBtn.dataset.role = 'deafen';
-  deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
-  deafenBtn.innerHTML = state.deafened ? ICONS.headphonesOff : ICONS.headphones;
-  deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
-  deafenBtn.style.left = `${deafenPos.left}px`;
-  deafenBtn.style.top = `${deafenPos.top}px`;
-  deafenBtn.onclick = () => app.setDeafen(!state.deafened);
-  container.appendChild(deafenBtn);
-
-  const gainAngle = 90 * Math.PI / 180;
-  const gainRadius = 110;
-  const gainWrap = document.createElement('div');
-  gainWrap.className = 'control-slider';
-  gainWrap.style.left = `${centerX + gainRadius * Math.cos(gainAngle)}px`;
-  gainWrap.style.top = `${centerY + gainRadius * Math.sin(gainAngle) - 36}px`;
-
-  const gainLabel = document.createElement('span');
-  gainLabel.textContent = `${Math.round(state.inputGain * 100)}%`;
-
-  const gainSlider = document.createElement('input');
-  gainSlider.type = 'range';
-  gainSlider.min = '0';
-  gainSlider.max = '200';
-  setSliderValue(gainSlider, state.inputGain * 100);
-  gainSlider.oninput = (e) => {
-    const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
-    setSliderValue(gainSlider, val * 100);
-    app.setInputGain(val);
-  };
-  attachWheel(gainSlider, 5);
-
-  gainWrap.append(gainLabel, gainSlider);
-  container.appendChild(gainWrap);
-
-  const pttPos = getPos(pttAngle);
-  const pttBtn = document.createElement('button');
-  pttBtn.dataset.role = 'ptt';
-  pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
-  pttBtn.innerHTML = ICONS.ptt;
-  pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
-  pttBtn.style.left = `${pttPos.left}px`;
-  pttBtn.style.top = `${pttPos.top}px`;
-  pttBtn.onclick = () => app.togglePtt();
-  container.appendChild(pttBtn);
-
-  const leavePos = getPos(leaveAngle);
-  const leaveBtn = document.createElement('button');
-  leaveBtn.dataset.role = 'leave';
-  leaveBtn.className = 'control-btn danger';
-  leaveBtn.innerHTML = ICONS.leave;
-  leaveBtn.title = 'Disconnect';
-  leaveBtn.style.left = `${leavePos.left}px`;
-  leaveBtn.style.top = `${leavePos.top}px`;
-  leaveBtn.onclick = () => app.leave();
-  container.appendChild(leaveBtn);
+  const rightRail = document.createElement('div');
+  rightRail.className = 'control-rail control-rail-right';
+  const micBtn = createButton('mic');
+  const { wrap: gainWrap, label: gainLabel, slider: gainSlider } = createSliderWrap('control-slider', 'input-gain', '0', '200');
+  const pttBtn = createButton('ptt');
+  rightRail.append(micBtn, gainWrap, pttBtn);
 
   const extras = document.createElement('div');
   extras.className = 'control-extras';
+  const { wrap: outputVolWrap, label: outputVolLabel, slider: outputVolSlider } = createSliderWrap('extra-slider', 'output', '0', '200');
+  const { wrap: gateWrap, label: gateLabel, slider: gateSlider } = createSliderWrap('extra-slider', 'gate', '-70', '-20');
+  extras.append(outputVolWrap, gateWrap);
 
-  const outputVolWrap = document.createElement('div');
-  outputVolWrap.className = 'extra-slider';
-  const outputVolLabel = document.createElement('span');
-  outputVolLabel.textContent = `Output ${Math.round(state.outputVolume * 100)}%`;
-  const outputVolSlider = document.createElement('input');
-  outputVolSlider.type = 'range';
-  outputVolSlider.min = '0';
-  outputVolSlider.max = '200';
-  setSliderValue(outputVolSlider, state.outputVolume * 100);
-  outputVolSlider.oninput = (e) => {
+  attachWheel(gainSlider, 5);
+  attachWheel(outputVolSlider, 5);
+  attachWheel(gateSlider, 2);
+
+  container.append(leftRail, rightRail, extras);
+
+  return {
+    micBtn,
+    deafenBtn,
+    gainWrap,
+    gainLabel,
+    gainSlider,
+    pttBtn,
+    leaveBtn,
+    extras,
+    outputVolWrap,
+    outputVolLabel,
+    outputVolSlider,
+    gateWrap,
+    gateLabel,
+    gateSlider,
+  };
+}
+
+export function renderControls(container: HTMLElement, app: VoiceApp, state: AppState): void {
+  container.className = 'control-arc';
+
+  const els = getControlElements(container) ?? createControlScaffold(container);
+
+  if (state.localForceMuted) {
+    els.micBtn.className = 'control-btn locked';
+    els.micBtn.innerHTML = ICONS.lock;
+    els.micBtn.title = 'Force muted by owner';
+    els.micBtn.onclick = () => {};
+  } else {
+    els.micBtn.className = 'control-btn' + (state.localMuted ? ' danger active' : '');
+    els.micBtn.innerHTML = state.localMuted ? ICONS.micOff : ICONS.mic;
+    els.micBtn.title = state.localMuted ? 'Unmute' : 'Mute';
+    els.micBtn.onclick = () => app.setMute(!state.localMuted);
+  }
+
+  els.deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
+  els.deafenBtn.innerHTML = state.deafened ? ICONS.headphonesOff : ICONS.headphones;
+  els.deafenBtn.title = state.deafened ? 'Undeafen' : 'Deafen';
+  els.deafenBtn.onclick = () => app.setDeafen(!state.deafened);
+
+  els.leaveBtn.className = 'control-btn danger';
+  els.leaveBtn.innerHTML = ICONS.leave;
+  els.leaveBtn.title = 'Disconnect';
+  els.leaveBtn.onclick = () => app.leave();
+
+  els.gainLabel.textContent = `Input ${Math.round(state.inputGain * 100)}%`;
+  setSliderValue(els.gainSlider, state.inputGain * 100);
+  els.gainSlider.oninput = (e) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
-    setSliderValue(outputVolSlider, val * 100);
+    setSliderValue(els.gainSlider, val * 100);
+    app.setInputGain(val);
+  };
+
+  els.pttBtn.className = 'control-btn' + (state.pttEnabled ? ' active' : '');
+  els.pttBtn.innerHTML = ICONS.ptt;
+  els.pttBtn.title = state.pttEnabled ? 'PTT On' : 'PTT Off';
+  els.pttBtn.onclick = () => app.togglePtt();
+
+  els.outputVolLabel.textContent = `Output ${Math.round(state.outputVolume * 100)}%`;
+  setSliderValue(els.outputVolSlider, state.outputVolume * 100);
+  els.outputVolSlider.oninput = (e) => {
+    const val = parseInt((e.target as HTMLInputElement).value, 10) / 100;
+    setSliderValue(els.outputVolSlider, val * 100);
     app.setOutputVolume(val);
   };
-  attachWheel(outputVolSlider, 5);
-  outputVolWrap.append(outputVolLabel, outputVolSlider);
-  extras.appendChild(outputVolWrap);
 
-  const gateWrap = document.createElement('div');
-  gateWrap.className = 'extra-slider';
-  const gateLabel = document.createElement('span');
-  gateLabel.textContent = `Gate ${state.noiseGateThreshold}dB`;
-  const gateSlider = document.createElement('input');
-  gateSlider.type = 'range';
-  gateSlider.min = '-70';
-  gateSlider.max = '-20';
-  setSliderValue(gateSlider, state.noiseGateThreshold);
-  gateSlider.oninput = (e) => {
+  els.gateLabel.textContent = `Gate ${state.noiseGateThreshold}dB`;
+  setSliderValue(els.gateSlider, state.noiseGateThreshold);
+  els.gateSlider.oninput = (e) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10);
-    setSliderValue(gateSlider, val);
+    setSliderValue(els.gateSlider, val);
     app.setNoiseGateThreshold(val);
   };
-  attachWheel(gateSlider, 2);
-  gateWrap.append(gateLabel, gateSlider);
-  extras.appendChild(gateWrap);
-
-  container.appendChild(extras);
 }

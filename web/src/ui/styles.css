@@ -118,6 +118,8 @@ body {
   position: relative;
   width: 320px;
   height: 320px;
+  grid-area: orb;
+  justify-self: center;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -497,13 +499,7 @@ body {
 }
 
 .control-arc {
-  position: relative;
-  z-index: 10;
-  width: 320px;
-  height: 148px;
-  margin: 0 auto;
-  animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  opacity: 0;
+  display: contents;
 }
 
 @keyframes arc-enter {
@@ -511,20 +507,46 @@ body {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+.control-rail,
+.control-extras {
+  opacity: 0;
+  animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.control-rail {
+  width: 84px;
+  min-height: 252px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  z-index: 10;
+}
+
+.control-rail-left {
+  grid-area: left;
+}
+
+.control-rail-right {
+  grid-area: right;
+}
+
 .control-btn {
-  position: absolute;
-  width: 52px;
-  height: 52px;
+  position: relative;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.22s ease, border-color 0.22s ease, color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
 .control-btn svg {
@@ -533,22 +555,23 @@ body {
 }
 
 .control-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
-  transform: scale(1.1);
+  transform: translateY(-2px);
   border-color: var(--border-glow);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 159, 67, 0.05);
 }
 
 .control-btn:active {
-  transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .control-btn.active {
-  background: rgba(255, 159, 67, 0.15);
+  background: rgba(255, 159, 67, 0.16);
   border-color: var(--accent-amber);
   color: var(--accent-amber);
-  box-shadow: 0 0 16px rgba(255, 159, 67, 0.2);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28), 0 0 20px rgba(255, 159, 67, 0.16);
 }
 
 .control-btn.danger {
@@ -562,7 +585,7 @@ body {
 }
 
 .control-btn.danger:active {
-  transform: scale(0.95);
+  transform: translateY(0);
   background: rgba(255, 107, 107, 0.2);
 }
 
@@ -570,17 +593,23 @@ body {
   background: rgba(255, 107, 107, 0.15);
   border-color: var(--accent-red);
   color: var(--accent-red);
-  box-shadow: 0 0 16px rgba(255, 107, 107, 0.2);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28), 0 0 20px rgba(255, 107, 107, 0.16);
 }
 
 .control-slider {
-  position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 12px;
   z-index: 10;
-  transform: translateX(-50%);
+  width: 72px;
+  min-height: 168px;
+  padding: 14px 10px;
+  border-radius: 28px;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.025) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
 .control-slider span {
@@ -589,69 +618,92 @@ body {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .control-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 108px;
-  height: 48px;
+  width: 128px;
+  height: 24px;
   background: transparent;
   cursor: pointer;
   touch-action: none;
   transform: rotate(-90deg);
 }
 
-.control-slider input[type="range"]::-webkit-slider-runnable-track {
-  height: 16px;
-  border-radius: 8px;
-  background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.1) var(--value));
+.control-slider input[type="range"]::-webkit-slider-runnable-track,
+.extra-slider input[type="range"]::-webkit-slider-runnable-track,
+.peer-volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.14) var(--value));
 }
 
-.control-slider input[type="range"]::-moz-range-track {
-  height: 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+.control-slider input[type="range"]::-moz-range-track,
+.extra-slider input[type="range"]::-moz-range-track,
+.peer-volume-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
   border: none;
 }
 
-.control-slider input[type="range"]::-moz-range-progress {
-  height: 16px;
-  border-radius: 8px;
+.control-slider input[type="range"]::-moz-range-progress,
+.extra-slider input[type="range"]::-moz-range-progress,
+.peer-volume-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
   background: var(--accent-amber);
+  box-shadow: 0 0 8px rgba(255, 159, 67, 0.18);
 }
 
-.control-slider input[type="range"]::-webkit-slider-thumb {
+.control-slider input[type="range"]::-webkit-slider-thumb,
+.extra-slider input[type="range"]::-webkit-slider-thumb,
+.peer-volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
+  width: 12px;
+  height: 20px;
+  border-radius: 999px;
   border: none;
   background: var(--accent-amber);
-  margin-top: 0;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  margin-top: -8px;
+  transition: width 0.15s ease, height 0.15s ease, box-shadow 0.15s ease;
 }
 
-.control-slider input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
+.control-slider input[type="range"]::-moz-range-thumb,
+.extra-slider input[type="range"]::-moz-range-thumb,
+.peer-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 20px;
+  border-radius: 999px;
   border: none;
   background: var(--accent-amber);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: width 0.15s ease, height 0.15s ease, box-shadow 0.15s ease;
 }
 
 .control-slider input[type="range"]::-webkit-slider-thumb:hover,
-.control-slider input[type="range"]::-webkit-slider-thumb:active {
-  transform: scale(1.2);
+.control-slider input[type="range"]::-webkit-slider-thumb:active,
+.extra-slider input[type="range"]::-webkit-slider-thumb:hover,
+.extra-slider input[type="range"]::-webkit-slider-thumb:active,
+.peer-volume-slider::-webkit-slider-thumb:hover,
+.peer-volume-slider::-webkit-slider-thumb:active {
+  width: 14px;
+  height: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .control-slider input[type="range"]::-moz-range-thumb:hover,
-.control-slider input[type="range"]::-moz-range-thumb:active {
-  transform: scale(1.2);
+.control-slider input[type="range"]::-moz-range-thumb:active,
+.extra-slider input[type="range"]::-moz-range-thumb:hover,
+.extra-slider input[type="range"]::-moz-range-thumb:active,
+.peer-volume-slider::-moz-range-thumb:hover,
+.peer-volume-slider::-moz-range-thumb:active {
+  width: 14px;
+  height: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -732,31 +784,11 @@ body {
 .peer-volume-slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 120px;
-  height: 48px;
+  width: 140px;
+  height: 24px;
   background: transparent;
   cursor: pointer;
   touch-action: none;
-  transform: rotate(-90deg);
-}
-
-.peer-volume-slider::-webkit-slider-runnable-track {
-  height: 16px;
-  border-radius: 8px;
-  background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.1) var(--value));
-}
-
-.peer-volume-slider::-moz-range-track {
-  height: 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-}
-
-.peer-volume-slider::-moz-range-progress {
-  height: 16px;
-  border-radius: 8px;
-  background: var(--accent-amber);
 }
 
 .peer-volume-slider::-webkit-slider-thumb {
@@ -898,20 +930,27 @@ body {
 }
 
 .control-extras {
-  position: absolute;
-  bottom: -76px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 24px;
+  grid-area: extras;
+  width: 100%;
+  max-width: 412px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   z-index: 10;
 }
 
 .extra-slider {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
 .extra-slider span {
@@ -927,63 +966,11 @@ body {
 .extra-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 108px;
-  height: 48px;
+  width: 100%;
+  height: 24px;
   background: transparent;
   cursor: pointer;
   touch-action: none;
-}
-
-.extra-slider input[type="range"]::-webkit-slider-runnable-track {
-  height: 16px;
-  border-radius: 8px;
-  background: linear-gradient(to right, var(--accent-amber) var(--value), rgba(255, 255, 255, 0.1) var(--value));
-}
-
-.extra-slider input[type="range"]::-moz-range-track {
-  height: 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-}
-
-.extra-slider input[type="range"]::-moz-range-progress {
-  height: 16px;
-  border-radius: 8px;
-  background: var(--accent-amber);
-}
-
-.extra-slider input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent-amber);
-  margin-top: 0;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.extra-slider input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent-amber);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.extra-slider input[type="range"]::-webkit-slider-thumb:hover,
-.extra-slider input[type="range"]::-webkit-slider-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.extra-slider input[type="range"]::-moz-range-thumb:hover,
-.extra-slider input[type="range"]::-moz-range-thumb:active {
-  transform: scale(1.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 
@@ -993,23 +980,36 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 30px;
+  gap: 22px;
   width: 100%;
-  max-width: 1200px;
+  max-width: 960px;
+}
+
+.connected-stage {
+  width: min(100%, 540px);
+  display: grid;
+  grid-template-columns: 84px minmax(280px, 320px) 84px;
+  grid-template-areas:
+    "left orb right"
+    "extras extras extras";
+  align-items: center;
+  justify-content: center;
+  column-gap: 18px;
+  row-gap: 28px;
 }
 
 .chat-wrap {
   position: relative;
   z-index: 5;
-  width: min(400px, 90vw);
-  max-width: 400px;
-  padding-bottom: 16px;
+  width: min(520px, 92vw);
+  max-width: 520px;
+  padding-bottom: 10px;
 }
 
 .chat-bar {
   height: 44px;
-  width: min(400px, 90vw);
-  max-width: 400px;
+  width: 100%;
+  max-width: none;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1391,29 +1391,29 @@ body {
   }
 
   .connected-page .connected-layout {
-    gap: 14px;
-    transform: scale(0.97);
-    transform-origin: top center;
+    gap: 16px;
   }
 
   .connected-page .chat-wrap {
-    width: min(100%, 380px);
+    width: min(100%, 448px);
     padding-bottom: 10px;
   }
 
   .connected-page .chat-bar {
-    width: min(100%, 380px);
     height: 42px;
     padding: 0 12px;
   }
 
-  .connected-page .orb-container {
-    width: 296px;
-    height: 296px;
+  .connected-page .connected-stage {
+    width: min(100%, 448px);
+    grid-template-columns: 72px minmax(232px, 280px) 72px;
+    column-gap: 12px;
+    row-gap: 20px;
   }
 
-  .connected-page .orb-canvas {
-    inset: 22px;
+  .connected-page .orb-container {
+    width: 280px;
+    height: 280px;
   }
 
   .connected-page .orb-label {
@@ -1422,14 +1422,38 @@ body {
     letter-spacing: 1.5px;
   }
 
-  .connected-page .control-arc {
-    width: 312px;
-    height: 148px;
+  .connected-page .control-rail {
+    width: 72px;
+    min-height: 220px;
+  }
+
+  .connected-page .control-btn {
+    width: 50px;
+    height: 50px;
+  }
+
+  .connected-page .control-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .connected-page .control-slider {
+    width: 62px;
+    min-height: 150px;
+    padding: 12px 8px;
+  }
+
+  .connected-page .control-slider input[type="range"] {
+    width: 112px;
   }
 
   .connected-page .control-extras {
-    bottom: -58px;
-    gap: 18px;
+    max-width: 360px;
+    gap: 12px;
+  }
+
+  .connected-page .extra-slider {
+    padding: 12px 14px 14px;
   }
 
   .connected-page .volume-tooltip {
@@ -1445,7 +1469,6 @@ body {
 
   .connected-page .connected-layout {
     gap: 10px;
-    transform: scale(0.92);
   }
 
   .connected-page .chat-wrap {
@@ -1456,27 +1479,50 @@ body {
     height: 40px;
   }
 
-  .connected-page .orb-container {
-    width: 276px;
-    height: 276px;
+  .connected-page .connected-stage {
+    width: min(100%, 420px);
+    grid-template-columns: 66px minmax(216px, 252px) 66px;
+    column-gap: 8px;
+    row-gap: 16px;
   }
 
-  .connected-page .orb-canvas {
-    inset: 18px;
+  .connected-page .orb-container {
+    width: 252px;
+    height: 252px;
   }
 
   .connected-page .orb-label {
     bottom: -30px;
   }
 
-  .connected-page .control-arc {
-    width: 304px;
-    height: 140px;
+  .connected-page .control-rail {
+    width: 66px;
+    min-height: 198px;
+  }
+
+  .connected-page .control-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  .connected-page .control-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .connected-page .control-slider {
+    width: 58px;
+    min-height: 136px;
+    padding: 10px 7px;
+  }
+
+  .connected-page .control-slider input[type="range"] {
+    width: 100px;
   }
 
   .connected-page .control-extras {
-    bottom: -52px;
-    gap: 12px;
+    max-width: 332px;
+    gap: 10px;
   }
 
   .connected-page .volume-tooltip {

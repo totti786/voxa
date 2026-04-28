@@ -205,6 +205,30 @@ describe('VoiceApp integration', () => {
     expect(preview.classList.contains('empty')).toBe(true);
   });
 
+  it('renders connected controls with side rails and extra sliders below', () => {
+    const app = new VoiceApp('ws://test/ws');
+    renderApp(document.body, app);
+    app.join('test-room', 'Alice');
+    app.store.setState({ connecting: false, connected: true, roomId: 'test-room' });
+
+    const stage = document.body.querySelector('.connected-stage') as HTMLElement;
+    expect(stage).toBeTruthy();
+
+    const leftRail = stage.querySelector('.control-rail-left') as HTMLElement;
+    const rightRail = stage.querySelector('.control-rail-right') as HTMLElement;
+    expect(leftRail).toBeTruthy();
+    expect(rightRail).toBeTruthy();
+
+    expect(leftRail.querySelector('.control-btn[data-role="deafen"]')).toBeTruthy();
+    expect(leftRail.querySelector('.control-btn[data-role="leave"]')).toBeTruthy();
+    expect(rightRail.querySelector('.control-btn[data-role="mic"]')).toBeTruthy();
+    expect(rightRail.querySelector('.control-slider[data-role="input-gain"]')).toBeTruthy();
+    expect(rightRail.querySelector('.control-btn[data-role="ptt"]')).toBeTruthy();
+
+    const extras = stage.querySelectorAll('.control-extras .extra-slider');
+    expect(extras).toHaveLength(2);
+  });
+
   it('shows system message when peer joins', () => {
     const app = new VoiceApp('ws://test/ws');
     renderApp(document.body, app);

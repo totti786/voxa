@@ -59,9 +59,11 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
     if (peerId) existingOrbs.set(peerId, orb as HTMLElement);
   });
 
-  const radius = 170;
-  const centerX = 160;
-  const centerY = 160;
+  const containerSize = Math.min(container.clientWidth || 320, container.clientHeight || 320) || 320;
+  const centerX = containerSize / 2;
+  const centerY = containerSize / 2;
+  const radius = containerSize * 0.53125;
+  const orbHalf = 30;
 
   const storedAngles = loadOrbAngles(roomId);
   const currentPeerIds = new Set(peers.map((p) => p.id));
@@ -85,8 +87,12 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
   if (prevResizer) {
     window.removeEventListener('resize', prevResizer);
   }
-  window.addEventListener('resize', updateCachedRect);
-  (container as any).__rectResizer = updateCachedRect;
+  const handleResize = () => {
+    updateCachedRect();
+    renderParticipants(container, app.store.getState().peers, app, roomId);
+  };
+  window.addEventListener('resize', handleResize);
+  (container as any).__rectResizer = handleResize;
 
   peers.forEach((peer, index) => {
     let angle = storedAngles.get(peer.id);
@@ -95,8 +101,8 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
       const unpositionedIndex = unpositionedPeers.findIndex((p) => p.id === peer.id);
       angle = distributeAnglesAvoidingBottom(unpositionedIndex, unpositionedPeers.length);
     }
-    const x = centerX + Math.cos(angle) * radius - 30;
-    const y = centerY + Math.sin(angle) * radius - 30;
+    const x = centerX + Math.cos(angle) * radius - orbHalf;
+    const y = centerY + Math.sin(angle) * radius - orbHalf;
 
     const existingOrb = existingOrbs.get(peer.id);
 
@@ -208,8 +214,9 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
         const dy = e.clientY - cy;
         const newAngle = Math.atan2(dy, dx);
 
-        const newX = centerX + Math.cos(newAngle) * radius - 32;
-        const newY = centerY + Math.sin(newAngle) * radius - 32;
+        const pointerOrbHalf = orb.offsetWidth / 2 || orbHalf;
+        const newX = centerX + Math.cos(newAngle) * radius - pointerOrbHalf;
+        const newY = centerY + Math.sin(newAngle) * radius - pointerOrbHalf;
         orb.style.left = `${newX}px`;
         orb.style.top = `${newY}px`;
 
@@ -254,6 +261,8 @@ export function renderParticipants(container: HTMLElement, peers: PeerInfo[], ap
 
       existingOrb.classList.toggle('speaking', peer.speaking);
       existingOrb.classList.toggle('muted', peer.muted);
+      existingOrb.style.left = `${x}px`;
+      existingOrb.style.top = `${y}px`;
 
       const initialsEl = existingOrb.querySelector('.peer-initials');
       if (initialsEl) initialsEl.textContent = initials;

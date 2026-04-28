@@ -44,6 +44,7 @@ interface ConnectedElements {
   lastMessageCount: number;
   _cleanupKeyboard?: () => void;
   _cleanupChat?: () => void;
+  _cleanupResize?: () => void;
 }
 
 interface OfflineElements {
@@ -183,11 +184,22 @@ function startParticles(els: Elements): void {
 }
 
 function clearConnected(els: Elements): void {
+  const participantCloser = (els.connectedScreen?.participants as any)?.__tooltipCloser as EventListener | undefined;
+  if (participantCloser) {
+    document.removeEventListener('pointerdown', participantCloser);
+  }
+  const participantResizer = (els.connectedScreen?.participants as any)?.__rectResizer as EventListener | undefined;
+  if (participantResizer) {
+    window.removeEventListener('resize', participantResizer);
+  }
   if (els.connectedScreen?._cleanupKeyboard) {
     els.connectedScreen._cleanupKeyboard();
   }
   if (els.connectedScreen?._cleanupChat) {
     els.connectedScreen._cleanupChat();
+  }
+  if (els.connectedScreen?._cleanupResize) {
+    els.connectedScreen._cleanupResize();
   }
   if (els.connectedScreen?.animId) {
     cancelAnimationFrame(els.connectedScreen.animId);
@@ -452,8 +464,13 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   layout.className = 'connected-layout';
   container.appendChild(layout);
 
+  const stage = document.createElement('div');
+  stage.className = 'connected-stage';
+  layout.appendChild(stage);
+
   const orbWrap = document.createElement('div');
   orbWrap.className = 'orb-container';
+  stage.appendChild(orbWrap);
 
   const ring = document.createElement('div');
   ring.className = 'orb-ring';
@@ -461,11 +478,6 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   const canvas = document.createElement('canvas');
   canvas.className = 'orb-canvas';
   const dpr = window.devicePixelRatio || 1;
-  const displaySize = 264;
-  canvas.width = displaySize * dpr;
-  canvas.height = displaySize * dpr;
-  canvas.style.width = `${displaySize}px`;
-  canvas.style.height = `${displaySize}px`;
 
   const orbLabel = document.createElement('div');
   orbLabel.className = 'orb-label';
@@ -521,10 +533,9 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   chatDropdown.appendChild(chatInputWrap);
   chatWrap.appendChild(chatDropdown);
-  layout.appendChild(chatWrap);
+  layout.insertBefore(chatWrap, stage);
 
   orbWrap.append(ring, canvas, orbLabel);
-  layout.appendChild(orbWrap);
 
   const participants = document.createElement('div');
   participants.className = 'participants-ring';
@@ -571,24 +582,24 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   document.addEventListener('click', onDocumentClick);
 
   const controls = document.createElement('div');
-  container.appendChild(controls);
+  stage.appendChild(controls);
 
   const ctx = canvas.getContext('2d');
-  if (ctx) ctx.scale(dpr, dpr);
-
-  const centerX = displaySize / 2;
-  const centerY = displaySize / 2;
-  const maxRadius = displaySize / 2 - 16;
+  let displaySize = 264;
+  let centerX = displaySize / 2;
+  let centerY = displaySize / 2;
+  let maxRadius = displaySize / 2 - 16;
   const barCount = 32;
   const smoothedHeights: number[] = new Array(barCount).fill(0);
   const smoothingFactor = 0.15;
-  const innerRadius = maxRadius * 0.2;
+  let innerRadius = maxRadius * 0.2;
 
   let speakingGradient: CanvasGradient | null = null;
   let silentGradient: CanvasGradient | null = null;
   let mutedGradient: CanvasGradient | null = null;
 
-  if (ctx) {
+  function refreshGradients() {
+    if (!ctx) return;
     speakingGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
     speakingGradient.addColorStop(0, 'rgba(255, 159, 67, 0.5)');
     speakingGradient.addColorStop(1, 'rgba(254, 202, 87, 0.95)');
@@ -601,6 +612,26 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     mutedGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
     mutedGradient.addColorStop(1, 'rgba(255, 107, 107, 0.7)');
   }
+
+  function syncVisualizerSize() {
+    if (!ctx) return;
+    const wrapSize = Math.max(240, Math.round(Math.min(orbWrap.clientWidth || 320, orbWrap.clientHeight || 320)));
+    const inset = Math.round(wrapSize * 0.0875);
+    displaySize = wrapSize - inset * 2;
+    canvas.style.inset = `${inset}px`;
+    canvas.width = Math.round(displaySize * dpr);
+    canvas.height = Math.round(displaySize * dpr);
+    canvas.style.width = `${displaySize}px`;
+    canvas.style.height = `${displaySize}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    centerX = displaySize / 2;
+    centerY = displaySize / 2;
+    maxRadius = displaySize / 2 - Math.max(12, Math.round(displaySize * 0.06));
+    innerRadius = maxRadius * 0.2;
+    refreshGradients();
+  }
+
+  syncVisualizerSize();
 
   let animId: number | null = null;
   let lastFrameTime = 0;
@@ -767,6 +798,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
+  window.addEventListener('resize', syncVisualizerSize);
 
   (connected as any)._cleanupKeyboard = () => {
     document.removeEventListener('keydown', onKeyDown);
@@ -775,6 +807,10 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   (connected as any)._cleanupChat = () => {
     document.removeEventListener('click', onDocumentClick);
+  };
+
+  (connected as any)._cleanupResize = () => {
+    window.removeEventListener('resize', syncVisualizerSize);
   };
 }
 
