@@ -214,16 +214,11 @@ describe('VoiceApp integration', () => {
     const stage = document.body.querySelector('.connected-stage') as HTMLElement;
     expect(stage).toBeTruthy();
 
-    const leftRail = stage.querySelector('.control-rail-left') as HTMLElement;
-    const rightRail = stage.querySelector('.control-rail-right') as HTMLElement;
-    expect(leftRail).toBeTruthy();
-    expect(rightRail).toBeTruthy();
-
-    expect(leftRail.querySelector('.control-btn[data-role="deafen"]')).toBeTruthy();
-    expect(leftRail.querySelector('.control-btn[data-role="leave"]')).toBeTruthy();
-    expect(rightRail.querySelector('.control-btn[data-role="mic"]')).toBeTruthy();
-    expect(rightRail.querySelector('.control-slider[data-role="input-gain"]')).toBeTruthy();
-    expect(rightRail.querySelector('.control-btn[data-role="ptt"]')).toBeTruthy();
+    expect(stage.querySelector('.control-btn[data-role="deafen"]')).toBeTruthy();
+    expect(stage.querySelector('.control-btn[data-role="mic"]')).toBeTruthy();
+    expect(stage.querySelector('.control-btn[data-role="leave"]')).toBeTruthy();
+    expect(stage.querySelector('.control-slider[data-role="input-gain"]')).toBeTruthy();
+    expect(stage.querySelector('.control-btn[data-role="ptt"]')).toBeTruthy();
 
     const extras = stage.querySelectorAll('.control-extras .extra-slider');
     expect(extras).toHaveLength(2);
