@@ -120,9 +120,12 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
     return;
   }
 
-  const centerX = 160;
-  const centerY = -40;
-  const radius = 136;
+  const rect = container.getBoundingClientRect();
+  const arcWidth = rect.width || 320;
+  const scale = arcWidth / 320;
+  const centerX = arcWidth / 2;
+  const centerY = -40 * scale;
+  const radius = 136 * scale;
   const btnSize = 52;
   const halfBtn = btnSize / 2;
 
@@ -155,7 +158,7 @@ export function renderControls(container: HTMLElement, app: VoiceApp, state: App
   micBtn.style.top = `${micPos.top}px`;
   container.appendChild(micBtn);
 
-  const deafenPos = getPos((180 - pttAngle * 180 / Math.PI) * Math.PI / 180);
+  const deafenPos = getPos(deafenAngle);
   const deafenBtn = document.createElement('button');
   deafenBtn.dataset.role = 'deafen';
   deafenBtn.className = 'control-btn' + (state.deafened ? ' danger active' : '');
