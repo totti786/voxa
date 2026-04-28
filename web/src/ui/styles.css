@@ -502,7 +502,7 @@ body {
   position: relative;
   z-index: 10;
   width: min(100%, 392px);
-  height: 238px;
+  height: 264px;
   margin: 0 auto;
   animation: arc-enter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   opacity: 0;
@@ -536,23 +536,23 @@ body {
 }
 
 .control-btn[data-role="deafen"] {
-  top: 18px;
-  left: 78px;
+  top: 14px;
+  left: 10px;
 }
 
 .control-btn[data-role="mic"] {
-  top: 18px;
-  right: 78px;
+  top: 14px;
+  right: 10px;
 }
 
 .control-btn[data-role="leave"] {
-  top: 90px;
-  left: 30px;
+  top: 164px;
+  left: 10px;
 }
 
 .control-btn[data-role="ptt"] {
-  top: 90px;
-  right: 30px;
+  top: 164px;
+  right: 10px;
 }
 
 .control-btn svg {
@@ -604,7 +604,7 @@ body {
 
 .control-slider {
   position: absolute;
-  top: 64px;
+  top: 58px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -636,7 +636,7 @@ body {
 .control-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 128px;
+  width: 118px;
   height: 24px;
   background: transparent;
   cursor: pointer;
@@ -992,7 +992,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
+  gap: 30px;
   width: 100%;
   max-width: 960px;
 }
@@ -1010,8 +1010,8 @@ body {
 .chat-wrap {
   position: relative;
   z-index: 5;
-  width: min(520px, 92vw);
-  max-width: 520px;
+  width: min(460px, 88vw);
+  max-width: 460px;
   padding-bottom: 10px;
 }
 
@@ -1400,11 +1400,11 @@ body {
   }
 
   .connected-page .connected-layout {
-    gap: 16px;
+    gap: 24px;
   }
 
   .connected-page .chat-wrap {
-    width: min(100%, 448px);
+    width: min(100%, 400px);
     padding-bottom: 10px;
   }
 
@@ -1435,23 +1435,23 @@ body {
   }
 
   .connected-page .control-btn[data-role="deafen"] {
-    top: 14px;
-    left: 70px;
+    top: 10px;
+    left: 8px;
   }
 
   .connected-page .control-btn[data-role="mic"] {
-    top: 14px;
-    right: 70px;
+    top: 10px;
+    right: 8px;
   }
 
   .connected-page .control-btn[data-role="leave"] {
-    top: 82px;
-    left: 28px;
+    top: 148px;
+    left: 8px;
   }
 
   .connected-page .control-btn[data-role="ptt"] {
-    top: 82px;
-    right: 28px;
+    top: 148px;
+    right: 8px;
   }
 
   .connected-page .control-btn svg {
@@ -1461,18 +1461,18 @@ body {
 
   .connected-page .control-arc {
     width: min(100%, 360px);
-    height: 220px;
+    height: 240px;
   }
 
   .connected-page .control-slider {
-    top: 58px;
+    top: 52px;
     width: 62px;
     min-height: 150px;
     padding: 12px 8px;
   }
 
   .connected-page .control-slider input[type="range"] {
-    width: 112px;
+    width: 104px;
   }
 
   .connected-page .control-extras {
@@ -1496,7 +1496,7 @@ body {
   }
 
   .connected-page .connected-layout {
-    gap: 10px;
+    gap: 18px;
   }
 
   .connected-page .chat-wrap {
@@ -1527,23 +1527,23 @@ body {
   }
 
   .connected-page .control-btn[data-role="deafen"] {
-    top: 10px;
-    left: 62px;
+    top: 8px;
+    left: 6px;
   }
 
   .connected-page .control-btn[data-role="mic"] {
-    top: 10px;
-    right: 62px;
+    top: 8px;
+    right: 6px;
   }
 
   .connected-page .control-btn[data-role="leave"] {
-    top: 74px;
-    left: 24px;
+    top: 136px;
+    left: 6px;
   }
 
   .connected-page .control-btn[data-role="ptt"] {
-    top: 74px;
-    right: 24px;
+    top: 136px;
+    right: 6px;
   }
 
   .connected-page .control-btn svg {
@@ -1553,18 +1553,18 @@ body {
 
   .connected-page .control-arc {
     width: min(100%, 328px);
-    height: 204px;
+    height: 222px;
   }
 
   .connected-page .control-slider {
-    top: 52px;
+    top: 46px;
     width: 58px;
     min-height: 136px;
     padding: 10px 7px;
   }
 
   .connected-page .control-slider input[type="range"] {
-    width: 100px;
+    width: 96px;
   }
 
   .connected-page .control-extras {
