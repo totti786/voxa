@@ -26,7 +26,7 @@ export function createAudioGraph(inputStream: MediaStream): AudioGraph {
 
   // Analyzer for VU meter / VAD
   const analyzer = context.createAnalyser();
-  analyzer.fftSize = 256;
+  analyzer.fftSize = 1024;
   analyzer.smoothingTimeConstant = 0.8;
 
   // Destination for processed stream
