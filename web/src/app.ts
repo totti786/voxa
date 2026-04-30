@@ -493,7 +493,7 @@ export class VoiceApp {
     this.pendingConsumers = [];
     this.clearPendingCallbacks();
     this.localAudioSetup = false;
-    this.store.setState({ peers: [] });
+    this.store.setState({ peers: [], selfPeerId: null });
   }
 
   private clearPendingCallbacks(): void {
@@ -511,8 +511,20 @@ export class VoiceApp {
   private async handleServerMessage(msg: ServerMessage): Promise<void> {
     switch (msg.type) {
       case 'joined': {
+        const prevSelfId = this.store.getState().selfPeerId;
+        const dedupedPeers = msg.peers.reduce<PeerInfo[]>((acc, p) => {
+          const existingIdx = acc.findIndex((ep) => ep.display_name === p.display_name);
+          if (existingIdx === -1) {
+            acc.push(p);
+          } else if (p.id === msg.self_peer_id) {
+            acc[existingIdx] = p;
+          } else if (prevSelfId && acc[existingIdx].id === prevSelfId) {
+            acc[existingIdx] = p;
+          }
+          return acc;
+        }, []);
         this.store.setState({
-          peers: msg.peers,
+          peers: dedupedPeers,
           selfPeerId: msg.self_peer_id,
           localIsOwner: msg.is_owner,
         });
@@ -521,7 +533,14 @@ export class VoiceApp {
       }
       case 'peer_joined': {
         const peers = this.store.getState().peers;
-        if (!peers.find((p) => p.id === msg.peer.id)) {
+        const existingIdx = peers.findIndex((p) => p.display_name === msg.peer.display_name);
+        if (existingIdx !== -1) {
+          const nextPeers = [...peers];
+          nextPeers[existingIdx] = msg.peer;
+          this.store.setState({
+            peers: nextPeers,
+          });
+        } else {
           this.store.setState({
             peers: [...peers, msg.peer],
             messages: [...this.store.getState().messages, { type: 'system', event: 'peer_joined', peer_id: msg.peer.id, timestamp: Date.now() }],
