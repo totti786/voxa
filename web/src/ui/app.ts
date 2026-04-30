@@ -591,7 +591,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   let maxRadius = displaySize / 2 - 16;
   const barCount = 96;
   const smoothedHeights: number[] = new Array(barCount).fill(0);
-  const smoothingFactor = 0.35;
+  const smoothingFactor = 0.15;
   let innerRadius = maxRadius * 0.2;
 
   let speakingGradient: CanvasGradient | null = null;
@@ -669,14 +669,10 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     ctx.clearRect(0, 0, displaySize, displaySize);
 
     if (data) {
-      const vocalRangeBins = Math.floor(data.length * 0.35);
-      
+      const usableBins = Math.floor(data.length * 0.6);
+
       for (let i = 0; i < barCount; i++) {
-        const isLeftHalf = i < barCount / 2;
-        const symmetricIndex = isLeftHalf ? i : barCount - 1 - i;
-        const halfBarCount = barCount / 2;
-        
-        const binIndex = logScaleBin(symmetricIndex, halfBarCount, vocalRangeBins);
+        const binIndex = logScaleBin(i, barCount, usableBins);
         const value = data[binIndex] / 255;
         const targetHeight = value * maxRadius * 0.22;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
