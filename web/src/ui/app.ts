@@ -589,7 +589,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   let centerX = displaySize / 2;
   let centerY = displaySize / 2;
   let maxRadius = displaySize / 2 - 16;
-  const barCount = 64;
+  const barCount = 96;
   const smoothedHeights: number[] = new Array(barCount).fill(0);
   const smoothingFactor = 0.35;
   let innerRadius = maxRadius * 0.2;
@@ -616,8 +616,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   function syncVisualizerSize() {
     if (!ctx) return;
     const wrapSize = Math.max(240, Math.round(Math.min(orbWrap.clientWidth || 320, orbWrap.clientHeight || 320)));
-    const inset = -12;
-    displaySize = wrapSize + 24;
+    const inset = -32;
+    displaySize = wrapSize + 64;
     canvas.style.inset = `${inset}px`;
     canvas.width = Math.round(displaySize * dpr);
     canvas.height = Math.round(displaySize * dpr);
@@ -672,7 +672,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       for (let i = 0; i < barCount; i++) {
         const binIndex = logScaleBin(i, barCount, data.length);
         const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.12;
+        const targetHeight = value * maxRadius * 0.22;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
 
@@ -683,8 +683,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         }
       }
 
-      const baseRadius = maxRadius - 8;
-      const interpPoints = 32;
+      const baseRadius = maxRadius - 32;
+      const interpPoints = 64;
       const totalPoints = barCount * interpPoints;
 
       const pts: { x: number; y: number }[] = [];
@@ -714,8 +714,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         ctx.strokeStyle = 'rgba(90, 90, 128, 0.5)';
         ctx.shadowColor = 'rgba(90, 90, 128, 0.2)';
       }
-      ctx.shadowBlur = isSpeaking ? 18 : 10;
-      ctx.lineWidth = 3;
+      ctx.shadowBlur = isSpeaking ? 24 : 14;
+      ctx.lineWidth = 4;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
@@ -735,8 +735,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       }
       ctx.stroke();
 
-      ctx.shadowBlur = isSpeaking ? 8 : 4;
-      ctx.lineWidth = 1.2;
+      ctx.shadowBlur = isSpeaking ? 12 : 6;
+      ctx.lineWidth = 2;
       ctx.strokeStyle = isMuted
         ? 'rgba(255, 160, 160, 0.6)'
         : isSpeaking
