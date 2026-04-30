@@ -672,7 +672,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       for (let i = 0; i < barCount; i++) {
         const binIndex = logScaleBin(i, barCount, data.length);
         const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.35;
+        const targetHeight = value * maxRadius * 0.45;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
 
@@ -683,83 +683,68 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         }
       }
 
-      const baseRadius = maxRadius * 0.82;
-      const pointsPerSegment = 6;
-      const totalPoints = barCount * pointsPerSegment;
+      const baseRadius = maxRadius * 0.78;
+      const interpPoints = 12;
+      const totalPoints = barCount * interpPoints;
 
-      const wavePoints: { x: number; y: number }[] = [];
-      for (let i = 0; i <= totalPoints; i++) {
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i < totalPoints; i++) {
         const t = i / totalPoints;
         const angle = t * Math.PI * 2 - Math.PI / 2;
-
-        const binFloat = t * barCount;
-        const binIdx = Math.floor(binFloat) % barCount;
-        const nextBinIdx = (binIdx + 1) % barCount;
-        const frac = binFloat - Math.floor(binFloat);
-        const height = smoothedHeights[binIdx] * (1 - frac) + smoothedHeights[nextBinIdx] * frac;
-
-        const radius = baseRadius + height;
-        wavePoints.push({
-          x: centerX + Math.cos(angle) * radius,
-          y: centerY + Math.sin(angle) * radius,
+        const binF = t * barCount;
+        const idx = Math.floor(binF) % barCount;
+        const nxt = (idx + 1) % barCount;
+        const f = binF - Math.floor(binF);
+        const h = smoothedHeights[idx] * (1 - f) + smoothedHeights[nxt] * f;
+        const r = baseRadius + h;
+        pts.push({
+          x: centerX + Math.cos(angle) * r,
+          y: centerY + Math.sin(angle) * r,
         });
       }
 
-      ctx.beginPath();
-      for (let i = 0; i < wavePoints.length; i++) {
-        const p = wavePoints[i];
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      }
-      for (let i = wavePoints.length - 1; i >= 0; i--) {
-        const t = i / totalPoints;
-        const angle = t * Math.PI * 2 - Math.PI / 2;
-        const x = centerX + Math.cos(angle) * baseRadius;
-        const y = centerY + Math.sin(angle) * baseRadius;
-        ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-
+      ctx.save();
       if (isMuted) {
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
       } else if (isSpeaking) {
-        ctx.fillStyle = 'rgba(168, 85, 247, 0.15)';
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.95)';
+        ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
       } else {
-        ctx.fillStyle = 'rgba(90, 90, 128, 0.06)';
+        ctx.strokeStyle = 'rgba(90, 90, 128, 0.5)';
+        ctx.shadowColor = 'rgba(90, 90, 128, 0.2)';
       }
-      ctx.fill();
-
-      ctx.beginPath();
-      for (let i = 0; i < wavePoints.length; i++) {
-        const p = wavePoints[i];
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      }
-      ctx.closePath();
-
-      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = isSpeaking ? 18 : 10;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      if (isMuted) {
-        ctx.strokeStyle = mutedGradient!;
-      } else if (isSpeaking) {
-        ctx.strokeStyle = speakingGradient!;
-      } else {
-        ctx.strokeStyle = silentGradient!;
+
+      ctx.beginPath();
+      const n = pts.length;
+      for (let i = 0; i < n; i++) {
+        const p0 = pts[(i - 1 + n) % n];
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % n];
+        const p3 = pts[(i + 2) % n];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        if (i === 0) ctx.moveTo(p1.x, p1.y);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
       ctx.stroke();
 
-      for (let i = 0; i < barCount; i++) {
-        if (peakHeights[i] > 2) {
-          const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-          const radius = baseRadius + peakHeights[i];
-          const peakX = centerX + Math.cos(angle) * radius;
-          const peakY = centerY + Math.sin(angle) * radius;
-          ctx.beginPath();
-          ctx.arc(peakX, peakY, 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = isSpeaking ? 'rgba(6, 182, 212, 0.8)' : 'rgba(90, 90, 128, 0.4)';
-          ctx.fill();
-        }
-      }
+      ctx.shadowBlur = isSpeaking ? 8 : 4;
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = isMuted
+        ? 'rgba(255, 160, 160, 0.6)'
+        : isSpeaking
+          ? 'rgba(200, 160, 255, 0.7)'
+          : 'rgba(130, 130, 170, 0.35)';
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     animId = requestAnimationFrame(draw);
