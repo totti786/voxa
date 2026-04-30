@@ -26,6 +26,13 @@ if (container) {
 app.fetchRooms();
 app.startFetchRoomsLoop();
 
+// Resume AudioContext when returning from background (mobile browsers suspend it)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    app.resumeAudioContext();
+  }
+});
+
 function isTypingTarget(e: Event): boolean {
   const target = e.target as HTMLElement;
   return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;

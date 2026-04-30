@@ -76,6 +76,7 @@ export class VoiceApp {
   remoteAudioElements = new Map<string, HTMLAudioElement>();
   peerVolumes = new Map<string, number>();
   private localAudioSetup = false;
+  private wakeLock: WakeLockSentinel | null = null;
   private freqData: Uint8Array<ArrayBuffer> | null = null;
   private readonly TRANSPORT_TIMEOUT_MS = 10000;
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
@@ -141,6 +142,7 @@ export class VoiceApp {
   async join(roomId: string, displayName: string, password?: string): Promise<void> {
     this.store.setState({ connecting: true, roomId, displayName, joinError: null, password });
     localStorage.setItem('voxa-username', displayName);
+    this.requestWakeLock();
     this.signaling.connect();
     const TIMEOUT_MS = 10000;
     const POLL_MS = 50;
@@ -171,6 +173,7 @@ export class VoiceApp {
     this.signaling.leave();
     this.signaling.flushAndDisconnect();
     this.cleanupCall();
+    this.releaseWakeLock();
     this.store.setState({ roomId: null, peers: [], connected: false, messages: [], selfPeerId: null, localIsOwner: false, localForceMuted: false, password: undefined });
   }
 
@@ -300,6 +303,38 @@ export class VoiceApp {
 
   isPKeyPttActive(): boolean {
     return this.pKeyPttActive;
+  }
+
+  async resumeAudioContext(): Promise<void> {
+    if (this.audioGraph?.context.state === 'suspended') {
+      try {
+        await this.audioGraph.context.resume();
+      } catch (err) {
+        console.error('[AUDIO] Failed to resume AudioContext:', err);
+      }
+    }
+  }
+
+  async requestWakeLock(): Promise<void> {
+    if ('wakeLock' in navigator) {
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen');
+        lock.addEventListener('release', () => {
+          console.log('[WAKE LOCK] Screen wake lock released');
+        });
+        this.wakeLock = lock;
+        console.log('[WAKE LOCK] Screen wake lock acquired');
+      } catch (err) {
+        console.error('[WAKE LOCK] Failed to acquire wake lock:', err);
+      }
+    }
+  }
+
+  releaseWakeLock(): void {
+    if (this.wakeLock) {
+      this.wakeLock.release();
+      this.wakeLock = null;
+    }
   }
 
   getFrequencyData(): Uint8Array | null {
