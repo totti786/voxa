@@ -155,8 +155,9 @@ body {
 
 .orb-canvas {
   position: absolute;
-  inset: 28px;
+  inset: -12px;
   border-radius: 50%;
+  pointer-events: none;
 }
 
 .orb-label {

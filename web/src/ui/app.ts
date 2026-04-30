@@ -616,8 +616,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   function syncVisualizerSize() {
     if (!ctx) return;
     const wrapSize = Math.max(240, Math.round(Math.min(orbWrap.clientWidth || 320, orbWrap.clientHeight || 320)));
-    const inset = Math.round(wrapSize * 0.0875);
-    displaySize = wrapSize - inset * 2;
+    const inset = -12;
+    displaySize = wrapSize + 24;
     canvas.style.inset = `${inset}px`;
     canvas.width = Math.round(displaySize * dpr);
     canvas.height = Math.round(displaySize * dpr);
@@ -626,7 +626,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     centerX = displaySize / 2;
     centerY = displaySize / 2;
-    maxRadius = displaySize / 2 - Math.max(12, Math.round(displaySize * 0.06));
+    maxRadius = displaySize / 2 - 8;
     innerRadius = maxRadius * 0.2;
     refreshGradients();
   }
@@ -672,7 +672,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       for (let i = 0; i < barCount; i++) {
         const binIndex = logScaleBin(i, barCount, data.length);
         const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.45;
+        const targetHeight = value * maxRadius * 0.08;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
 
@@ -683,7 +683,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         }
       }
 
-      const baseRadius = maxRadius * 0.78;
+      const baseRadius = maxRadius - 8;
       const interpPoints = 12;
       const totalPoints = barCount * interpPoints;
 
