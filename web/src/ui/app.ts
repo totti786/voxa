@@ -173,7 +173,7 @@ function startParticles(els: Elements): void {
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 159, 67, ${p.opacity})`;
+      ctx.fillStyle = `rgba(168, 85, 247, ${p.opacity})`;
       ctx.fill();
     }
 
@@ -601,12 +601,12 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   function refreshGradients() {
     if (!ctx) return;
     speakingGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    speakingGradient.addColorStop(0, 'rgba(255, 159, 67, 0.5)');
-    speakingGradient.addColorStop(1, 'rgba(254, 202, 87, 0.95)');
+    speakingGradient.addColorStop(0, 'rgba(168, 85, 247, 0.5)');
+    speakingGradient.addColorStop(1, 'rgba(6, 182, 212, 0.95)');
 
     silentGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    silentGradient.addColorStop(0, 'rgba(138, 127, 117, 0.1)');
-    silentGradient.addColorStop(1, 'rgba(138, 127, 117, 0.35)');
+    silentGradient.addColorStop(0, 'rgba(90, 90, 128, 0.1)');
+    silentGradient.addColorStop(1, 'rgba(90, 90, 128, 0.35)');
 
     mutedGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
     mutedGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
@@ -672,7 +672,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       for (let i = 0; i < barCount; i++) {
         const binIndex = logScaleBin(i, barCount, data.length);
         const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.75;
+        const targetHeight = value * maxRadius * 0.45;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
 
@@ -681,46 +681,70 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         } else {
           peakHeights[i] *= peakDecay;
         }
-
-        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-        const x1 = centerX + Math.cos(angle) * innerRadius;
-        const y1 = centerY + Math.sin(angle) * innerRadius;
-        const x2 = centerX + Math.cos(angle) * (innerRadius + barHeight);
-        const y2 = centerY + Math.sin(angle) * (innerRadius + barHeight);
-        if (isMuted) {
-          ctx.strokeStyle = mutedGradient!;
-        } else if (isSpeaking) {
-          ctx.strokeStyle = speakingGradient!;
-        } else {
-          ctx.strokeStyle = silentGradient!;
-        }
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-
-        if (peakHeights[i] > 2) {
-          const peakX = centerX + Math.cos(angle) * (innerRadius + peakHeights[i]);
-          const peakY = centerY + Math.sin(angle) * (innerRadius + peakHeights[i]);
-          ctx.beginPath();
-          ctx.arc(peakX, peakY, 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = isSpeaking ? 'rgba(255, 200, 100, 0.8)' : 'rgba(138, 127, 117, 0.4)';
-          ctx.fill();
-        }
       }
-    }
 
-    if (isSpeaking && !isMuted) {
-      const base = data ? data[0] / 255 : 0;
-      const glowRadius = innerRadius + base * 40;
-      const glow = ctx.createRadialGradient(centerX, centerY, innerRadius * 0.5, centerX, centerY, glowRadius);
-      glow.addColorStop(0, 'rgba(255, 159, 67, 0.2)');
-      glow.addColorStop(0.5, 'rgba(255, 159, 67, 0.08)');
-      glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, displaySize, displaySize);
+      const baseRadius = maxRadius * 0.78;
+      const interpPoints = 12;
+      const totalPoints = barCount * interpPoints;
+
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i < totalPoints; i++) {
+        const t = i / totalPoints;
+        const angle = t * Math.PI * 2 - Math.PI / 2;
+        const binF = t * barCount;
+        const idx = Math.floor(binF) % barCount;
+        const nxt = (idx + 1) % barCount;
+        const f = binF - Math.floor(binF);
+        const h = smoothedHeights[idx] * (1 - f) + smoothedHeights[nxt] * f;
+        const r = baseRadius + h;
+        pts.push({
+          x: centerX + Math.cos(angle) * r,
+          y: centerY + Math.sin(angle) * r,
+        });
+      }
+
+      ctx.save();
+      if (isMuted) {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
+      } else if (isSpeaking) {
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.95)';
+        ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
+      } else {
+        ctx.strokeStyle = 'rgba(90, 90, 128, 0.5)';
+        ctx.shadowColor = 'rgba(90, 90, 128, 0.2)';
+      }
+      ctx.shadowBlur = isSpeaking ? 18 : 10;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      const n = pts.length;
+      for (let i = 0; i < n; i++) {
+        const p0 = pts[(i - 1 + n) % n];
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % n];
+        const p3 = pts[(i + 2) % n];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        if (i === 0) ctx.moveTo(p1.x, p1.y);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      ctx.stroke();
+
+      ctx.shadowBlur = isSpeaking ? 8 : 4;
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = isMuted
+        ? 'rgba(255, 160, 160, 0.6)'
+        : isSpeaking
+          ? 'rgba(200, 160, 255, 0.7)'
+          : 'rgba(130, 130, 170, 0.35)';
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     animId = requestAnimationFrame(draw);
