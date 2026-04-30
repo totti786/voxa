@@ -1,0 +1,27 @@
+{
+  "name": "Voxa",
+  "short_name": "Voxa",
+  "description": "Web-first, self-hosted, low-latency voice communication",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0c0c",
+  "theme_color": "#0c0c0c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["social", "utilities"],
+  "lang": "en",
+  "dir": "ltr"
+}

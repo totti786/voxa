@@ -1,5 +1,18 @@
 import { VoiceApp } from './app.js';
 import { renderApp } from './ui/app.js';
+import { registerSW } from 'virtual:pwa-register';
+
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    if (confirm('A new version of Voxa is available. Reload to update?')) {
+      location.reload();
+    }
+  },
+  onOfflineReady() {
+    console.log('[PWA] App ready to work offline');
+  },
+});
 
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const wsUrl = `${protocol}//${window.location.host}/ws`;
