@@ -492,7 +492,6 @@ body {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
   cursor: pointer;
@@ -504,7 +503,7 @@ body {
 }
 
 .control-btn[data-role="deafen"] {
-  top: 2px;
+  top: -18px;
   left: 36px;
 }
 
@@ -514,7 +513,7 @@ body {
 }
 
 .control-btn[data-role="leave"] {
-  top: 44px;
+  top: 32px;
   left: 110px;
 }
 
@@ -567,7 +566,7 @@ body {
 
 .control-slider {
   position: absolute;
-  top: 86px;
+  top: 65px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -901,7 +900,7 @@ body {
 .control-extras {
   position: absolute;
   left: 50%;
-  top: 270px;
+  top: 210px;
   transform: translateX(-50%);
   width: min(100%, 360px);
   display: grid;
@@ -965,9 +964,10 @@ body {
 .chat-wrap {
   position: relative;
   z-index: 5;
-  width: min(440px, 90vw);
-  max-width: 440px;
-  padding-bottom: 10px;
+  width: min(350px, 90vw);
+  max-width: 350px;
+  padding-bottom: 30px;
+  padding-top: 80px;
 }
 
 .chat-bar {
@@ -980,7 +980,6 @@ body {
   padding: 0 14px;
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--border-subtle);
   border-radius: 12px;
   cursor: pointer;
   user-select: none;
@@ -1027,7 +1026,7 @@ body {
 
 .chat-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + -20px);
   left: 0;
   width: 100%;
   max-height: 320px;
@@ -1389,13 +1388,13 @@ body {
   }
 
   .connected-page .control-btn[data-role="deafen"] {
-    top: 2px;
-    left: 32px;
+    top: -18px;
+    left: 48px;
   }
 
   .connected-page .control-btn[data-role="mic"] {
-    top: 2px;
-    right: 32px;
+    top: -18px;
+    right: 38px;
   }
 
   .connected-page .control-btn[data-role="leave"] {
@@ -1404,8 +1403,8 @@ body {
   }
 
   .connected-page .control-btn[data-role="ptt"] {
-    top: 40px;
-    right: 96px;
+    top: 32px;
+    right: 110px;
   }
 
   .connected-page .control-btn svg {
@@ -1419,14 +1418,15 @@ body {
   }
 
   .connected-page .control-slider {
-    top: 76px;
+    top: 40px;
     width: 62px;
     min-height: 130px;
     padding: 10px 8px;
   }
 
   .connected-page .control-slider input[type="range"] {
-    width: 84px;
+    width: 90px;
+    height: 80px;
   }
 
   .connected-page .control-extras {
