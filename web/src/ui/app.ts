@@ -173,7 +173,7 @@ function startParticles(els: Elements): void {
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 159, 67, ${p.opacity})`;
+      ctx.fillStyle = `rgba(168, 85, 247, ${p.opacity})`;
       ctx.fill();
     }
 
@@ -601,12 +601,12 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   function refreshGradients() {
     if (!ctx) return;
     speakingGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    speakingGradient.addColorStop(0, 'rgba(255, 159, 67, 0.5)');
-    speakingGradient.addColorStop(1, 'rgba(254, 202, 87, 0.95)');
+    speakingGradient.addColorStop(0, 'rgba(168, 85, 247, 0.5)');
+    speakingGradient.addColorStop(1, 'rgba(6, 182, 212, 0.95)');
 
     silentGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    silentGradient.addColorStop(0, 'rgba(138, 127, 117, 0.1)');
-    silentGradient.addColorStop(1, 'rgba(138, 127, 117, 0.35)');
+    silentGradient.addColorStop(0, 'rgba(90, 90, 128, 0.1)');
+    silentGradient.addColorStop(1, 'rgba(90, 90, 128, 0.35)');
 
     mutedGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
     mutedGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
@@ -672,7 +672,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       for (let i = 0; i < barCount; i++) {
         const binIndex = logScaleBin(i, barCount, data.length);
         const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.75;
+        const targetHeight = value * maxRadius * 0.35;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
 
@@ -681,46 +681,85 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
         } else {
           peakHeights[i] *= peakDecay;
         }
+      }
 
-        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-        const x1 = centerX + Math.cos(angle) * innerRadius;
-        const y1 = centerY + Math.sin(angle) * innerRadius;
-        const x2 = centerX + Math.cos(angle) * (innerRadius + barHeight);
-        const y2 = centerY + Math.sin(angle) * (innerRadius + barHeight);
-        if (isMuted) {
-          ctx.strokeStyle = mutedGradient!;
-        } else if (isSpeaking) {
-          ctx.strokeStyle = speakingGradient!;
-        } else {
-          ctx.strokeStyle = silentGradient!;
-        }
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
+      const baseRadius = maxRadius * 0.82;
+      const pointsPerSegment = 6;
+      const totalPoints = barCount * pointsPerSegment;
 
+      const wavePoints: { x: number; y: number }[] = [];
+      for (let i = 0; i <= totalPoints; i++) {
+        const t = i / totalPoints;
+        const angle = t * Math.PI * 2 - Math.PI / 2;
+
+        const binFloat = t * barCount;
+        const binIdx = Math.floor(binFloat) % barCount;
+        const nextBinIdx = (binIdx + 1) % barCount;
+        const frac = binFloat - Math.floor(binFloat);
+        const height = smoothedHeights[binIdx] * (1 - frac) + smoothedHeights[nextBinIdx] * frac;
+
+        const radius = baseRadius + height;
+        wavePoints.push({
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius,
+        });
+      }
+
+      ctx.beginPath();
+      for (let i = 0; i < wavePoints.length; i++) {
+        const p = wavePoints[i];
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      for (let i = wavePoints.length - 1; i >= 0; i--) {
+        const t = i / totalPoints;
+        const angle = t * Math.PI * 2 - Math.PI / 2;
+        const x = centerX + Math.cos(angle) * baseRadius;
+        const y = centerY + Math.sin(angle) * baseRadius;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+
+      if (isMuted) {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+      } else if (isSpeaking) {
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.15)';
+      } else {
+        ctx.fillStyle = 'rgba(90, 90, 128, 0.06)';
+      }
+      ctx.fill();
+
+      ctx.beginPath();
+      for (let i = 0; i < wavePoints.length; i++) {
+        const p = wavePoints[i];
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      if (isMuted) {
+        ctx.strokeStyle = mutedGradient!;
+      } else if (isSpeaking) {
+        ctx.strokeStyle = speakingGradient!;
+      } else {
+        ctx.strokeStyle = silentGradient!;
+      }
+      ctx.stroke();
+
+      for (let i = 0; i < barCount; i++) {
         if (peakHeights[i] > 2) {
-          const peakX = centerX + Math.cos(angle) * (innerRadius + peakHeights[i]);
-          const peakY = centerY + Math.sin(angle) * (innerRadius + peakHeights[i]);
+          const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
+          const radius = baseRadius + peakHeights[i];
+          const peakX = centerX + Math.cos(angle) * radius;
+          const peakY = centerY + Math.sin(angle) * radius;
           ctx.beginPath();
           ctx.arc(peakX, peakY, 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = isSpeaking ? 'rgba(255, 200, 100, 0.8)' : 'rgba(138, 127, 117, 0.4)';
+          ctx.fillStyle = isSpeaking ? 'rgba(6, 182, 212, 0.8)' : 'rgba(90, 90, 128, 0.4)';
           ctx.fill();
         }
       }
-    }
-
-    if (isSpeaking && !isMuted) {
-      const base = data ? data[0] / 255 : 0;
-      const glowRadius = innerRadius + base * 40;
-      const glow = ctx.createRadialGradient(centerX, centerY, innerRadius * 0.5, centerX, centerY, glowRadius);
-      glow.addColorStop(0, 'rgba(255, 159, 67, 0.2)');
-      glow.addColorStop(0.5, 'rgba(255, 159, 67, 0.08)');
-      glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, displaySize, displaySize);
     }
 
     animId = requestAnimationFrame(draw);
