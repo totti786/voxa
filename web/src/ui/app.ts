@@ -589,9 +589,9 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   let centerX = displaySize / 2;
   let centerY = displaySize / 2;
   let maxRadius = displaySize / 2 - 16;
-  const barCount = 32;
+  const barCount = 64;
   const smoothedHeights: number[] = new Array(barCount).fill(0);
-  const smoothingFactor = 0.15;
+  const smoothingFactor = 0.35;
   let innerRadius = maxRadius * 0.2;
 
   let speakingGradient: CanvasGradient | null = null;
@@ -635,10 +635,10 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
 
   let animId: number | null = null;
   let lastFrameTime = 0;
-  const targetFrameInterval = 1000 / 30;
+  const targetFrameInterval = 1000 / 60;
 
   const peakHeights: number[] = new Array(barCount).fill(0);
-  const peakDecay = 0.92;
+  const peakDecay = 0.88;
 
   function logScaleBin(i: number, total: number, maxBin: number): number {
     const minFreq = 1;
@@ -672,7 +672,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       for (let i = 0; i < barCount; i++) {
         const binIndex = logScaleBin(i, barCount, data.length);
         const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.08;
+        const targetHeight = value * maxRadius * 0.12;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
         const barHeight = smoothedHeights[i];
 
@@ -684,7 +684,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       }
 
       const baseRadius = maxRadius - 8;
-      const interpPoints = 12;
+      const interpPoints = 32;
       const totalPoints = barCount * interpPoints;
 
       const pts: { x: number; y: number }[] = [];
