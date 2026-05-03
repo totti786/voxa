@@ -591,7 +591,7 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   let maxRadius = displaySize / 2 - 16;
   const barCount = 96;
   const smoothedHeights: number[] = new Array(barCount).fill(0);
-  const smoothingFactor = 0.15;
+  const bandPhaseOffsets: number[] = Array.from({ length: barCount }, () => Math.random() * Math.PI * 2);
   let innerRadius = maxRadius * 0.2;
 
   let speakingGradient: CanvasGradient | null = null;
@@ -636,17 +636,45 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
   let animId: number | null = null;
   let lastFrameTime = 0;
   const targetFrameInterval = 1000 / 60;
+  let sampleRotationPhase = 0;
+  let ambientTime = 0;
 
-  const peakHeights: number[] = new Array(barCount).fill(0);
-  const peakDecay = 0.88;
+  function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+  }
 
-  function logScaleBin(i: number, total: number, maxBin: number): number {
-    const minFreq = 1;
-    const logMin = Math.log(minFreq);
-    const logMax = Math.log(maxBin);
-    const t = i / Math.max(total - 1, 1);
+  function logScaleBinPosition(t: number, maxBin: number): number {
+    const safeMax = Math.max(2, maxBin);
+    const minBin = 1;
+    const logMin = Math.log(minBin);
+    const logMax = Math.log(safeMax);
     const logVal = logMin + t * (logMax - logMin);
-    return Math.min(Math.floor(Math.exp(logVal)), maxBin - 1);
+    return clamp(Math.exp(logVal), minBin, safeMax - 1);
+  }
+
+  function sampleFrequency(data: Uint8Array, binPosition: number): number {
+    const clamped = clamp(binPosition, 0, data.length - 1);
+    const lo = Math.floor(clamped);
+    const hi = Math.min(lo + 1, data.length - 1);
+    const mix = clamped - lo;
+    const value = data[lo] * (1 - mix) + data[hi] * mix;
+    return value / 255;
+  }
+
+  function drawSmoothLoop(points: Array<{ x: number; y: number }>): void {
+    const n = points.length;
+    for (let i = 0; i < n; i++) {
+      const p0 = points[(i - 1 + n) % n];
+      const p1 = points[i];
+      const p2 = points[(i + 1) % n];
+      const p3 = points[(i + 2) % n];
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      if (i === 0) ctx?.moveTo(p1.x, p1.y);
+      ctx?.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
   }
 
   function draw(timestamp: number) {
@@ -659,7 +687,10 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       animId = requestAnimationFrame(draw);
       return;
     }
+    const frameDelta = lastFrameTime === 0 ? targetFrameInterval : timestamp - lastFrameTime;
+    const dt = clamp(frameDelta, targetFrameInterval, 80);
     lastFrameTime = timestamp;
+    ambientTime += dt;
 
     const data = app.getFrequencyData();
     const s = app.store.getState();
@@ -669,35 +700,44 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
     ctx.clearRect(0, 0, displaySize, displaySize);
 
     if (data) {
-      const usableBins = Math.floor(data.length * 0.6);
+      const usableBins = clamp(Math.floor(data.length * 0.72), 16, data.length);
+      let energyAccumulator = 0;
+      const energyEnd = Math.max(8, Math.floor(usableBins * 0.35));
+      for (let i = 1; i < energyEnd; i++) {
+        energyAccumulator += data[i];
+      }
+      const averageEnergy = (energyAccumulator / (energyEnd - 1)) / 255;
+      const energy = Math.pow(clamp(averageEnergy, 0, 1), 0.8);
+      sampleRotationPhase = (sampleRotationPhase + dt * (0.00018 + energy * 0.00085)) % 1;
+      const baseRadius = maxRadius - 34 + energy * 4;
+      const sampleOffset = sampleRotationPhase;
 
       for (let i = 0; i < barCount; i++) {
-        const binIndex = logScaleBin(i, barCount, usableBins);
-        const value = data[binIndex] / 255;
-        const targetHeight = value * maxRadius * 0.22;
-        smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothingFactor;
-        const barHeight = smoothedHeights[i];
+        const t = ((i + 0.5) / barCount + sampleOffset) % 1;
+        const centerBin = logScaleBinPosition(t, usableBins - 1);
+        const spread = usableBins * 0.016;
 
-        if (barHeight > peakHeights[i]) {
-          peakHeights[i] = barHeight;
-        } else {
-          peakHeights[i] *= peakDecay;
+        let value = 0;
+        let weightTotal = 0;
+        for (let k = -2; k <= 2; k++) {
+          const weight = 1 - Math.abs(k) * 0.2;
+          const sampleBin = centerBin + k * spread;
+          value += sampleFrequency(data, sampleBin) * weight;
+          weightTotal += weight;
         }
+        value /= Math.max(1e-6, weightTotal);
+
+        const ambientMotion = (Math.sin(ambientTime * 0.0019 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 2.2;
+        const reactiveHeight = Math.pow(value, 1.18) * (maxRadius * 0.44);
+        const targetHeight = reactiveHeight + ambientMotion * (1 - Math.min(value * 1.35, 1));
+        const smoothing = targetHeight > smoothedHeights[i] ? 0.42 : 0.14;
+        smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothing;
       }
 
-      const baseRadius = maxRadius - 32;
-      const interpPoints = 64;
-      const totalPoints = barCount * interpPoints;
-
       const pts: { x: number; y: number }[] = [];
-      for (let i = 0; i < totalPoints; i++) {
-        const t = i / totalPoints;
-        const angle = t * Math.PI * 2 - Math.PI / 2;
-        const binF = t * barCount;
-        const idx = Math.floor(binF) % barCount;
-        const nxt = (idx + 1) % barCount;
-        const f = binF - Math.floor(binF);
-        const h = smoothedHeights[idx] * (1 - f) + smoothedHeights[nxt] * f;
+      for (let i = 0; i < barCount; i++) {
+        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
+        const h = smoothedHeights[i];
         const r = baseRadius + h;
         pts.push({
           x: centerX + Math.cos(angle) * r,
@@ -706,6 +746,20 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       }
 
       ctx.save();
+      const fillGradient = isMuted
+        ? (mutedGradient ?? 'rgba(255, 107, 107, 0.25)')
+        : isSpeaking
+          ? (speakingGradient ?? 'rgba(168, 85, 247, 0.25)')
+          : (silentGradient ?? 'rgba(90, 90, 128, 0.18)');
+
+      ctx.beginPath();
+      drawSmoothLoop(pts);
+      ctx.closePath();
+      ctx.globalAlpha = isMuted ? 0.28 : isSpeaking ? 0.24 : 0.15;
+      ctx.fillStyle = fillGradient;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
       if (isMuted) {
         ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
         ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
@@ -722,19 +776,8 @@ function renderConnectedScreen(container: HTMLElement, els: Elements, app: Voice
       ctx.lineJoin = 'round';
 
       ctx.beginPath();
-      const n = pts.length;
-      for (let i = 0; i < n; i++) {
-        const p0 = pts[(i - 1 + n) % n];
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % n];
-        const p3 = pts[(i + 2) % n];
-        const cp1x = p1.x + (p2.x - p0.x) / 6;
-        const cp1y = p1.y + (p2.y - p0.y) / 6;
-        const cp2x = p2.x - (p3.x - p1.x) / 6;
-        const cp2y = p2.y - (p3.y - p1.y) / 6;
-        if (i === 0) ctx.moveTo(p1.x, p1.y);
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-      }
+      drawSmoothLoop(pts);
+      ctx.closePath();
       ctx.stroke();
 
       ctx.shadowBlur = isSpeaking ? 12 : 6;
