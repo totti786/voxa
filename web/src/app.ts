@@ -318,12 +318,38 @@ export class VoiceApp {
     return this.pKeyPttActive;
   }
 
-  async resumeAudioContext(): Promise<void> {
+  async handleForegroundResume(): Promise<void> {
+    // Resume AudioContext if suspended (mobile battery save)
     if (this.audioGraph?.context.state === 'suspended') {
       try {
         await this.audioGraph.context.resume();
       } catch (err) {
         console.error('[AUDIO] Failed to resume AudioContext:', err);
+      }
+    }
+
+    // If the mic track was killed while backgrounded, re-capture it
+    if (!this.localAudioSetup && this.store.getState().connected) {
+      console.log('[AUDIO] Re-initializing microphone after background kill');
+      await this.setupLocalAudio();
+      if (this.producer && this.localStream) {
+        const track =
+          this.audioGraph?.outputStream.getAudioTracks()[0] ??
+          this.localStream.getAudioTracks()[0];
+        if (track && track.readyState === 'live') {
+          try {
+            await this.producer.replaceTrack({ track });
+            this.store.setState({ audioDegraded: false, toast: null });
+            this.syncOutgoingAudioState();
+          } catch (err) {
+            console.error('[AUDIO] Failed to replace track on producer:', err);
+            // Fall back: close old producer and create new one
+            this.producer.close();
+            this.producer = null;
+            await this.produceAudio();
+            this.store.setState({ audioDegraded: false, toast: null });
+          }
+        }
       }
     }
   }
@@ -365,6 +391,16 @@ export class VoiceApp {
     try {
       const deviceId = this.store.getState().selectedDeviceId;
       this.localStream = await captureAudio(deviceId ? { deviceId } : {});
+
+      // Detect when the mic track is killed by the OS (mobile backgrounding)
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.onended = () => {
+          console.warn('[AUDIO] Microphone track ended (OS background kill)');
+          this.localAudioSetup = false;
+          this.store.setState({ audioDegraded: true, toast: 'Microphone disconnected — tap to re-enable when ready' });
+        };
+      }
     } catch (err) {
       console.error('[AUDIO] Failed to get microphone:', err);
       alert('Microphone access is required. Please allow microphone access and try again.');

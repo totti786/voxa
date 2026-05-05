@@ -448,8 +448,11 @@ export function renderConnectedScreen(
     }
   };
   orbWrap.onclick = () => {
-    if (!app.store.getState().pttEnabled) {
-      app.setMute(!app.store.getState().localMuted);
+    const s = app.store.getState();
+    if (s.audioDegraded) {
+      app.handleForegroundResume();
+    } else if (!s.pttEnabled) {
+      app.setMute(!s.localMuted);
     }
   };
 

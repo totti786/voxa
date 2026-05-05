@@ -26,10 +26,10 @@ if (container) {
 app.fetchRooms();
 app.startFetchRoomsLoop();
 
-// Resume AudioContext when returning from background (mobile browsers suspend it)
+// Recover audio when returning from background (mobile browsers kill the mic)
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
-    app.resumeAudioContext();
+    app.handleForegroundResume();
   }
 });
 
