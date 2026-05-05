@@ -2,7 +2,7 @@ import { Device } from 'mediasoup-client';
 import type { Transport, Producer, Consumer, DtlsParameters, RtpParameters, RtpCapabilities, IceParameters, IceCandidate, MediaKind } from 'mediasoup-client/types';
 import { SignalingClient, PROTOCOL_VERSION } from './signaling/client.js';
 import { captureAudio, stopCapture, enumerateAudioDevices } from './audio/capture.js';
-import { createAudioGraph, closeAudioGraph, setInputGain } from './audio/processing.js';
+import { createAudioGraph, closeAudioGraph, setInputGain, setupMediaSession, teardownMediaSession } from './audio/processing.js';
 import { VADAnalyzer } from './audio/vad.js';
 import { Store } from './state/store.js';
 import type { PeerInfo, ServerMessage, RoomSummary, ChatMessage, MessageEntry } from './types.js';
@@ -177,12 +177,14 @@ export class VoiceApp {
         check();
       });
       this.signaling.join(roomId, displayName, password);
+      setupMediaSession(roomId);
     } catch (err) {
       console.error('[JOIN] Failed:', err);
     }
   }
 
   leave(): void {
+    teardownMediaSession();
     this.signaling.leave();
     this.signaling.flushAndDisconnect();
     this.cleanupCall();

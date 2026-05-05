@@ -21,14 +21,17 @@ function createMockNode(stream?: MediaStream) {
 
 class MockAudioContext {
   sampleRate: number;
+  destination: any;
   constructor(opts?: { sampleRate?: number }) {
     this.sampleRate = opts?.sampleRate ?? 48000;
+    this.destination = { };
   }
   createMediaStreamSource = () => createMockNode();
   createGain = () => createMockNode();
   createDynamicsCompressor = () => createMockNode();
   createAnalyser = () => createMockNode();
   createMediaStreamDestination = () => createMockNode();
+  createOscillator = () => ({ ...createMockNode(), type: 'sine' as const, frequency: { value: 0 }, start: () => {}, stop: () => {} });
   close = () => Promise.resolve();
 }
 
@@ -46,6 +49,8 @@ describe('audio processing', () => {
     expect(graph.compressor).toBeDefined();
     expect(graph.analyzer).toBeDefined();
     expect(graph.outputStream).toBeDefined();
+    expect(graph.keepalive).toBeDefined();
+    expect(graph.keepaliveGain).toBeDefined();
     closeAudioGraph(graph);
   });
 
