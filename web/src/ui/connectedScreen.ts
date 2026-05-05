@@ -1,4 +1,5 @@
-import type { VoiceApp, AppState } from '../../app.js';
+import type { VoiceApp, AppState } from '../app.js';
+import type { PeerInfo } from '../types.js';
 import { renderParticipants } from './participants.js';
 import { renderControls } from './controls.js';
 import { renderChatMessages, getSystemMessageText } from './chat.js';
@@ -540,7 +541,7 @@ export function updateConnected(
     const previewEl = els.chatBar.querySelector('.chat-bar-preview') as HTMLElement;
     if (previewEl && latest) {
       if (latest.type === 'chat') {
-        const peer = state.peers.find((p) => p.id === latest.peer_id);
+        const peer = state.peers.find((p: PeerInfo) => p.id === latest.peer_id);
         const name =
           latest.peer_id === 'self'
             ? state.displayName
