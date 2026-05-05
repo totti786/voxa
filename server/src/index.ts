@@ -7,6 +7,9 @@ import { roomState } from './room/state.js';
 async function main() {
   const config = loadConfig();
 
+  // Restore persisted rooms
+  roomState.loadState();
+
   await createWorker();
   console.log('mediasoup worker started');
 
@@ -67,6 +70,7 @@ async function main() {
 
   process.on('SIGINT', () => {
     console.log('Shutting down gracefully...');
+    roomState.flushSync();
     wss.close(() => {
       server.close(() => {
         process.exit(0);

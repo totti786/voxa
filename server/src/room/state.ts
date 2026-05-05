@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import type { PeerInfo } from '../types.js';
 import type { WebRtcTransport, Producer, Consumer, RtpCapabilities } from 'mediasoup/types';
 
@@ -25,8 +27,93 @@ export interface Room {
   bannedUntil: Map<string, number>;
 }
 
+interface PersistedRoom {
+  id: string;
+  password?: string;
+  maxUsers: number;
+  createdAt: string;
+  ownerPeerId: string | null;
+  bannedUntil: Record<string, number>;
+}
+
+interface PersistedState {
+  version: number;
+  rooms: PersistedRoom[];
+}
+
+const STATE_VERSION = 1;
+const STATE_FILE = process.env.STATE_FILE || path.join(process.cwd(), 'voxa-state.json');
+
 class RoomState {
   private rooms = new Map<string, Room>();
+  private dirty = false;
+  private saveTimer: NodeJS.Timeout | null = null;
+
+  private markDirty(): void {
+    this.dirty = true;
+    if (!this.saveTimer) {
+      this.saveTimer = setTimeout(() => this.saveState(), 500);
+    }
+  }
+
+  private saveState(): void {
+    this.saveTimer = null;
+    if (!this.dirty) return;
+
+    const persisted: PersistedState = {
+      version: STATE_VERSION,
+      rooms: Array.from(this.rooms.values()).map((room) => ({
+        id: room.id,
+        password: room.password,
+        maxUsers: room.maxUsers,
+        createdAt: room.createdAt.toISOString(),
+        ownerPeerId: room.ownerPeerId,
+        bannedUntil: Object.fromEntries(room.bannedUntil),
+      })),
+    };
+
+    try {
+      fs.writeFileSync(STATE_FILE, JSON.stringify(persisted, null, 2), 'utf-8');
+      this.dirty = false;
+    } catch (err) {
+      console.error('[STATE] Failed to save state:', err);
+    }
+  }
+
+  loadState(): void {
+    try {
+      if (!fs.existsSync(STATE_FILE)) return;
+
+      const raw = fs.readFileSync(STATE_FILE, 'utf-8');
+      const data: PersistedState = JSON.parse(raw);
+
+      if (!data.version || !Array.isArray(data.rooms)) {
+        console.warn('[STATE] Invalid state file format, starting fresh');
+        return;
+      }
+
+      for (const pr of data.rooms) {
+        const room: Room = {
+          id: pr.id,
+          password: pr.password,
+          maxUsers: pr.maxUsers || 10,
+          peers: new Map(),
+          createdAt: new Date(pr.createdAt),
+          ownerPeerId: pr.ownerPeerId ?? null,
+          bannedUntil: new Map(Object.entries(pr.bannedUntil || {}).map(([k, v]) => [k, Number(v)])),
+        };
+        // Clean expired bans
+        const now = Date.now();
+        for (const [peerId, until] of room.bannedUntil) {
+          if (now >= until) room.bannedUntil.delete(peerId);
+        }
+        this.rooms.set(room.id, room);
+      }
+      console.log(`[STATE] Loaded ${this.rooms.size} rooms from ${STATE_FILE}`);
+    } catch (err) {
+      console.error('[STATE] Failed to load state:', err);
+    }
+  }
 
   getRoom(id: string): Room | undefined {
     return this.rooms.get(id);
@@ -43,11 +130,14 @@ class RoomState {
       bannedUntil: new Map(),
     };
     this.rooms.set(id, room);
+    this.markDirty();
     return room;
   }
 
   deleteRoom(id: string): boolean {
-    return this.rooms.delete(id);
+    const result = this.rooms.delete(id);
+    if (result) this.markDirty();
+    return result;
   }
 
   addPeer(roomId: string, peer: Peer): boolean {
@@ -67,6 +157,7 @@ class RoomState {
     const removed = room.peers.delete(peerId);
     if (removed && room.peers.size === 0) {
       this.rooms.delete(roomId);
+      this.markDirty();
     }
     return removed;
   }
@@ -116,6 +207,7 @@ class RoomState {
     const room = this.rooms.get(roomId);
     if (!room) return false;
     room.ownerPeerId = peerId;
+    this.markDirty();
     return true;
   }
 
@@ -135,6 +227,7 @@ class RoomState {
     const room = this.rooms.get(roomId);
     if (!room) return;
     room.bannedUntil.set(peerId, Date.now() + durationMs);
+    this.markDirty();
   }
 
   isBanned(roomId: string, peerId: string): boolean {
@@ -144,6 +237,7 @@ class RoomState {
     if (!until) return false;
     if (Date.now() >= until) {
       room.bannedUntil.delete(peerId);
+      this.markDirty();
       return false;
     }
     return true;
@@ -155,6 +249,15 @@ class RoomState {
     for (const peer of room.peers.values()) {
       peer.forceMuted = false;
     }
+  }
+
+  /** Flush pending saves immediately (call before shutdown) */
+  flushSync(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    this.saveState();
   }
 }
 

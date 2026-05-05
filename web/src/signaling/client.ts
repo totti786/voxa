@@ -1,9 +1,12 @@
 import type { ClientMessage, ServerMessage, PeerInfo } from '../types.js';
 
+export const PROTOCOL_VERSION = 1;
+
 export type MessageHandler = (msg: ServerMessage) => void | Promise<void>;
 export type ConnectHandler = () => void;
 export type DisconnectHandler = () => void;
 export type ReconnectingHandler = () => void;
+export type VersionMismatchHandler = (serverVersion: number) => void;
 
 interface QueuedMessage {
   data: string;
@@ -20,9 +23,11 @@ export class SignalingClient {
   private connectHandlers: ConnectHandler[] = [];
   private disconnectHandlers: DisconnectHandler[] = [];
   private reconnectingHandlers: ReconnectingHandler[] = [];
+  private versionMismatchHandlers: VersionMismatchHandler[] = [];
   private messageQueue: QueuedMessage[] = [];
   private processingQueue = false;
   private sendQueue: ClientMessage[] = [];
+  private firstMessage = true;
 
   constructor(url: string) {
     this.url = url;
@@ -31,6 +36,7 @@ export class SignalingClient {
   connect(): void {
     this.shouldReconnect = true;
     this.sendQueue = [];
+    this.firstMessage = true;
     const socket = new WebSocket(this.url);
     this.ws = socket;
 
@@ -93,6 +99,23 @@ export class SignalingClient {
       const item = this.messageQueue.shift()!;
       try {
         const msg = JSON.parse(item.data) as ServerMessage;
+
+        // Check protocol version on first message
+        if (this.firstMessage) {
+          this.firstMessage = false;
+          if (msg.type === 'welcome') {
+            if (msg.version !== PROTOCOL_VERSION) {
+              console.error(`[WS] Protocol version mismatch: server=${msg.version}, client=${PROTOCOL_VERSION}`);
+              this.versionMismatchHandlers.forEach((h) => h(msg.version));
+              this.shouldReconnect = false;
+              this.ws?.close();
+              return;
+            }
+            // Welcome acknowledged — don't pass to regular handlers
+            item.resolve();
+            continue;
+          }
+        }
         for (const h of this.messageHandlers) {
           await h(msg);
         }
@@ -153,6 +176,10 @@ export class SignalingClient {
 
   onReconnecting(handler: ReconnectingHandler): void {
     this.reconnectingHandlers.push(handler);
+  }
+
+  onVersionMismatch(handler: VersionMismatchHandler): void {
+    this.versionMismatchHandlers.push(handler);
   }
 
   join(room: string, displayName: string, password?: string): void {

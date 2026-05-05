@@ -1,5 +1,7 @@
 import type { ClientMessage, ServerMessage } from '../types.js';
 
+export const PROTOCOL_VERSION = 1;
+
 export function validateClientMessage(data: unknown): ClientMessage | null {
   if (typeof data !== 'object' || data === null) return null;
   const msg = data as Record<string, unknown>;

@@ -1,56 +1,28 @@
 import { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
 import type { PeerInfo, ChatMessage, MessageEntry, SystemMessageEntry } from '../types.js';
-import { renderParticipants } from './participants.js';
-import { renderControls } from './controls.js';
+import { startParticles } from './particles.js';
+import { renderConnectedScreen, updateConnected } from './connectedScreen.js';
+import type { ConnectedElements } from './connectedScreen.js';
+import { escapeHtml } from './chat.js';
 
 type Screen = 'offline' | 'connecting' | 'connected';
-
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  opacity: number;
-}
-
-interface Elements {
-  headerRoomInfo: HTMLElement;
-  main: HTMLElement;
-  particleCanvas: HTMLCanvasElement;
-  particleCtx: CanvasRenderingContext2D;
-  particleAnimId: number | null;
-  reconnectingOverlay: HTMLElement;
-  offlineScreen?: HTMLElement;
-  offlineElements?: OfflineElements;
-  connectingScreen?: HTMLElement;
-  connectedScreen?: ConnectedElements;
-}
-
-interface ConnectedElements {
-  orbWrap: HTMLElement;
-  orbRing: HTMLElement;
-  orbCanvas: HTMLCanvasElement;
-  orbLabel: HTMLElement;
-  participants: HTMLElement;
-  controls: HTMLElement;
-  canvasCtx: CanvasRenderingContext2D | null;
-  animId: number | null;
-  chatBar: HTMLElement;
-  chatDropdown: HTMLElement;
-  chatMessages: HTMLElement;
-  chatInput: HTMLInputElement;
-  lastMessageCount: number;
-  _cleanupKeyboard?: () => void;
-  _cleanupChat?: () => void;
-  _cleanupResize?: () => void;
-}
 
 interface OfflineElements {
   errorEl: HTMLElement;
   deviceBtn: HTMLButtonElement;
   createForm: HTMLElement | null;
+}
+
+interface Elements {
+  headerRoomInfo: HTMLElement;
+  main: HTMLElement;
+  stopParticles: (() => void) | null;
+  reconnectingOverlay: HTMLElement;
+  offlineScreen?: HTMLElement;
+  offlineElements?: OfflineElements;
+  connectingScreen?: HTMLElement;
+  connectedScreen?: ConnectedElements;
 }
 
 export function renderApp(container: HTMLElement, app: VoiceApp): void {
@@ -61,7 +33,6 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
   particleCanvas.width = window.innerWidth;
   particleCanvas.height = window.innerHeight;
   container.appendChild(particleCanvas);
-  const particleCtx = particleCanvas.getContext('2d')!;
 
   const ambient = document.createElement('div');
   ambient.className = 'ambient-glow';
@@ -82,19 +53,31 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
 
   const reconnectingOverlay = document.createElement('div');
   reconnectingOverlay.className = 'reconnecting-overlay';
-  reconnectingOverlay.innerHTML = '<div class="reconnecting-spinner"></div><p>Reconnecting...</p>';
+  reconnectingOverlay.innerHTML =
+    '<div class="reconnecting-spinner"></div><p>Reconnecting...</p>';
   reconnectingOverlay.style.display = 'none';
   container.appendChild(reconnectingOverlay);
 
-  const els: Elements = { headerRoomInfo, main, particleCanvas, particleCtx, particleAnimId: null, reconnectingOverlay };
+  const stopParticles = (() => {
+    const particleCtx = particleCanvas.getContext('2d');
+    if (particleCtx) {
+      return startParticles(particleCanvas, particleCtx);
+    }
+    return () => {};
+  })();
+
+  const els: Elements = {
+    headerRoomInfo,
+    main,
+    stopParticles,
+    reconnectingOverlay,
+  };
 
   function handleResize() {
     particleCanvas.width = window.innerWidth;
     particleCanvas.height = window.innerHeight;
   }
   window.addEventListener('resize', handleResize);
-
-  startParticles(els);
 
   let currentScreen: Screen | null = null;
 
@@ -118,7 +101,7 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
       } else if (screen === 'connecting') {
         renderConnectingScreen(main, els);
       } else {
-        renderConnectedScreen(main, els, app);
+        els.connectedScreen = renderConnectedScreen(main, app);
       }
     }
 
@@ -137,58 +120,14 @@ export function renderApp(container: HTMLElement, app: VoiceApp): void {
   update(app.store.getState());
 }
 
-function createParticles(width: number, height: number): Particle[] {
-  const particles: Particle[] = [];
-  const count = 60;
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      size: Math.random() * 2 + 0.5,
-      opacity: Math.random() * 0.3 + 0.05,
-    });
-  }
-  return particles;
-}
-
-function startParticles(els: Elements): void {
-  if (!els.particleCanvas || !els.particleCtx) return;
-  const particles = createParticles(els.particleCanvas.width, els.particleCanvas.height);
-
-  function draw() {
-    const ctx = els.particleCtx!;
-    const canvas = els.particleCanvas!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (const p of particles) {
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (p.x < -10) p.x = canvas.width + 10;
-      if (p.x > canvas.width + 10) p.x = -10;
-      if (p.y < -10) p.y = canvas.height + 10;
-      if (p.y > canvas.height + 10) p.y = -10;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(168, 85, 247, ${p.opacity})`;
-      ctx.fill();
-    }
-
-    els.particleAnimId = requestAnimationFrame(draw);
-  }
-
-  draw();
-}
-
 function clearConnected(els: Elements): void {
-  const participantCloser = (els.connectedScreen?.participants as any)?.__tooltipCloser as EventListener | undefined;
+  const participantCloser = (els.connectedScreen?.participants as any)
+    ?.__tooltipCloser as EventListener | undefined;
   if (participantCloser) {
     document.removeEventListener('pointerdown', participantCloser);
   }
-  const participantResizer = (els.connectedScreen?.participants as any)?.__rectResizer as EventListener | undefined;
+  const participantResizer = (els.connectedScreen?.participants as any)
+    ?.__rectResizer as EventListener | undefined;
   if (participantResizer) {
     window.removeEventListener('resize', participantResizer);
   }
@@ -210,7 +149,15 @@ function clearConnected(els: Elements): void {
   els.connectingScreen = undefined;
 }
 
-function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceApp): void {
+/**
+ * ─── OFFLINE SCREEN ───
+ */
+
+function renderOfflineScreen(
+  container: HTMLElement,
+  els: Elements,
+  app: VoiceApp
+): void {
   const wrap = document.createElement('div');
   wrap.className = 'join-form';
   wrap.innerHTML = `
@@ -252,11 +199,13 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
   newRoomInput.style.display = 'none';
   wrap.appendChild(newRoomInput);
 
+  // Device button
   const deviceBtn = document.createElement('button');
   deviceBtn.className = 'device-select-btn';
   deviceBtn.type = 'button';
   deviceBtn.title = 'Select microphone';
-  deviceBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+  deviceBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
   const deviceDropdown = document.createElement('div');
   deviceDropdown.className = 'device-dropdown';
@@ -280,7 +229,8 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
       for (const device of inputs) {
         const opt = document.createElement('div');
         opt.className = 'device-option';
-        opt.textContent = device.label || `Microphone ${deviceDropdown.children.length}`;
+        opt.textContent =
+          device.label || `Microphone ${deviceDropdown.children.length}`;
         opt.onclick = () => {
           app.store.setState({ selectedDeviceId: device.deviceId });
           localStorage.setItem('voxa-preferred-device', device.deviceId);
@@ -306,16 +256,14 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
     app.store.setState({ selectedDeviceId: savedDevice });
   }
 
-  // Build a name input row with device button inline
+  // Name row with device button
   const nameRow = document.createElement('div');
   nameRow.className = 'name-row';
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'Your name';
   nameInput.className = 'name-input';
   const savedName = localStorage.getItem('voxa-username');
-  if (savedName) {
-    nameInput.value = savedName;
-  }
+  if (savedName) nameInput.value = savedName;
   nameRow.appendChild(nameInput);
   nameRow.appendChild(deviceBtn);
   nameRow.appendChild(deviceDropdown);
@@ -347,7 +295,8 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
     roomGrid.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
     createCard.classList.add('selected');
     newRoomInput.style.display = 'none';
-    createForm.style.display = createForm.style.display === 'none' ? 'flex' : 'none';
+    createForm.style.display =
+      createForm.style.display === 'none' ? 'flex' : 'none';
   };
 
   const createSubmit = createForm.querySelector('.create-room-submit') as HTMLButtonElement;
@@ -363,14 +312,16 @@ function renderOfflineScreen(container: HTMLElement, els: Elements, app: VoiceAp
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId: roomName, password, maxUsers }),
-    }).then(() => {
-      app.fetchRooms();
-      createForm.style.display = 'none';
-      newRoomInput.style.display = 'block';
-      newRoomInput.value = roomName;
-    }).catch((err) => {
-      console.error('Failed to create room:', err);
-    });
+    })
+      .then(() => {
+        app.fetchRooms();
+        createForm.style.display = 'none';
+        newRoomInput.style.display = 'block';
+        newRoomInput.value = roomName;
+      })
+      .catch((err) => {
+        console.error('Failed to create room:', err);
+      });
   };
 
   container.appendChild(wrap);
@@ -439,17 +390,25 @@ function updateOfflineScreen(wrap: HTMLElement, state: AppState): void {
       grid.innerHTML = `<div class="room-loading">Loading rooms...</div>`;
       const createCard2 = document.createElement('div');
       createCard2.className = 'room-card create-room';
-      createCard2.innerHTML = `<div class="room-card-name">+ New Room</div><div class="room-card-meta">Start a fresh conversation</div>`;
+      createCard2.innerHTML =
+        `<div class="room-card-name">+ New Room</div><div class="room-card-meta">Start a fresh conversation</div>`;
       grid.appendChild(createCard2);
       createCard2.onclick = () => {
         grid!.querySelectorAll('.room-card').forEach((c) => c.classList.remove('selected'));
         createCard2.classList.add('selected');
         const nri = wrap.querySelector('.new-room-input') as HTMLElement;
-        if (nri) { nri.style.display = 'block'; (nri as HTMLInputElement).focus(); }
+        if (nri) {
+          nri.style.display = 'block';
+          (nri as HTMLInputElement).focus();
+        }
       };
     }
   }
 }
+
+/**
+ * ─── CONNECTING SCREEN ───
+ */
 
 function renderConnectingScreen(container: HTMLElement, els: Elements): void {
   const wrap = document.createElement('div');
@@ -457,551 +416,4 @@ function renderConnectingScreen(container: HTMLElement, els: Elements): void {
   wrap.innerHTML = `<div class="spinner"></div><p>Connecting...</p>`;
   container.appendChild(wrap);
   els.connectingScreen = wrap;
-}
-
-function renderConnectedScreen(container: HTMLElement, els: Elements, app: VoiceApp): void {
-  const layout = document.createElement('div');
-  layout.className = 'connected-layout';
-  container.appendChild(layout);
-
-  const stage = document.createElement('div');
-  stage.className = 'connected-stage';
-  layout.appendChild(stage);
-
-  const orbWrap = document.createElement('div');
-  orbWrap.className = 'orb-container';
-  stage.appendChild(orbWrap);
-
-  const ring = document.createElement('div');
-  ring.className = 'orb-ring';
-
-  const canvas = document.createElement('canvas');
-  canvas.className = 'orb-canvas';
-  const dpr = window.devicePixelRatio || 1;
-
-  const orbLabel = document.createElement('div');
-  orbLabel.className = 'orb-label';
-
-  const chatWrap = document.createElement('div');
-  chatWrap.className = 'chat-wrap';
-
-  const chatBar = document.createElement('div');
-  chatBar.className = 'chat-bar';
-
-  const chatIcon = document.createElement('span');
-  chatIcon.className = 'chat-bar-icon';
-  chatIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
-
-  const chatPreview = document.createElement('span');
-  chatPreview.className = 'chat-bar-preview empty';
-  chatPreview.textContent = 'No messages yet';
-
-  const chatChevron = document.createElement('span');
-  chatChevron.className = 'chat-bar-chevron';
-  chatChevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>';
-
-  chatBar.appendChild(chatIcon);
-  chatBar.appendChild(chatPreview);
-  chatBar.appendChild(chatChevron);
-  chatWrap.appendChild(chatBar);
-
-  const chatDropdown = document.createElement('div');
-  chatDropdown.className = 'chat-dropdown';
-  chatDropdown.style.display = 'none';
-
-  const chatMessages = document.createElement('div');
-  chatMessages.className = 'chat-messages';
-  chatDropdown.appendChild(chatMessages);
-
-  const chatInputWrap = document.createElement('div');
-  chatInputWrap.className = 'chat-input-wrap';
-
-  const chatInput = document.createElement('input');
-  chatInput.className = 'chat-input';
-  chatInput.placeholder = 'Type a message...';
-  chatInput.maxLength = 500;
-  chatInputWrap.appendChild(chatInput);
-
-  const chatSendBtn = document.createElement('button');
-  chatSendBtn.className = 'chat-send-btn';
-  chatSendBtn.textContent = 'Send';
-  chatSendBtn.onclick = () => {
-    app.sendChat(chatInput.value);
-    chatInput.value = '';
-  };
-  chatInputWrap.appendChild(chatSendBtn);
-
-  chatDropdown.appendChild(chatInputWrap);
-  chatWrap.appendChild(chatDropdown);
-  layout.insertBefore(chatWrap, stage);
-
-  orbWrap.append(ring, canvas, orbLabel);
-
-  const participants = document.createElement('div');
-  participants.className = 'participants-ring';
-  orbWrap.appendChild(participants);
-
-  chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      app.sendChat(chatInput.value);
-      chatInput.value = '';
-    }
-  });
-
-  let isDropdownOpen = false;
-
-  function openDropdown() {
-    isDropdownOpen = true;
-    chatDropdown.style.display = 'flex';
-    chatChevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="18 15 12 9 6 15"/></svg>';
-    chatBar.classList.remove('new-message');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  function closeDropdown() {
-    isDropdownOpen = false;
-    chatDropdown.style.display = 'none';
-    chatChevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>';
-  }
-
-  chatBar.onclick = () => {
-    if (isDropdownOpen) {
-      closeDropdown();
-    } else {
-      openDropdown();
-    }
-  };
-
-  function onDocumentClick(e: MouseEvent) {
-    if (!isDropdownOpen) return;
-    const target = e.target as Node;
-    if (!chatBar.contains(target) && !chatDropdown.contains(target)) {
-      closeDropdown();
-    }
-  }
-  document.addEventListener('click', onDocumentClick);
-
-  const controls = document.createElement('div');
-  stage.appendChild(controls);
-
-  const ctx = canvas.getContext('2d');
-  let displaySize = 264;
-  let centerX = displaySize / 2;
-  let centerY = displaySize / 2;
-  let maxRadius = displaySize / 2 - 16;
-  const barCount = 96;
-  const smoothedHeights: number[] = new Array(barCount).fill(0);
-  const bandPhaseOffsets: number[] = Array.from({ length: barCount }, () => Math.random() * Math.PI * 2);
-  let innerRadius = maxRadius * 0.2;
-
-  let speakingGradient: CanvasGradient | null = null;
-  let silentGradient: CanvasGradient | null = null;
-  let mutedGradient: CanvasGradient | null = null;
-
-  function refreshGradients() {
-    if (!ctx) return;
-    speakingGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    speakingGradient.addColorStop(0, 'rgba(168, 85, 247, 0.5)');
-    speakingGradient.addColorStop(1, 'rgba(6, 182, 212, 0.95)');
-
-    silentGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    silentGradient.addColorStop(0, 'rgba(90, 90, 128, 0.1)');
-    silentGradient.addColorStop(1, 'rgba(90, 90, 128, 0.35)');
-
-    mutedGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    mutedGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
-    mutedGradient.addColorStop(1, 'rgba(255, 107, 107, 0.7)');
-  }
-
-  function syncVisualizerSize() {
-    if (!ctx) return;
-    const wrapSize = Math.max(240, Math.round(Math.min(orbWrap.clientWidth || 320, orbWrap.clientHeight || 320)));
-    const inset = -32;
-    displaySize = wrapSize + 64;
-    canvas.style.inset = `${inset}px`;
-    canvas.width = Math.round(displaySize * dpr);
-    canvas.height = Math.round(displaySize * dpr);
-    canvas.style.width = `${displaySize}px`;
-    canvas.style.height = `${displaySize}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    centerX = displaySize / 2;
-    centerY = displaySize / 2;
-    maxRadius = displaySize / 2 - 8;
-    innerRadius = maxRadius * 0.2;
-    refreshGradients();
-  }
-
-  syncVisualizerSize();
-
-  let animId: number | null = null;
-  let lastFrameTime = 0;
-  const targetFrameInterval = 1000 / 60;
-  let sampleRotationPhase = 0;
-  let ambientTime = 0;
-
-  function clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function logScaleBinPosition(t: number, maxBin: number): number {
-    const safeMax = Math.max(2, maxBin);
-    const minBin = 1;
-    const logMin = Math.log(minBin);
-    const logMax = Math.log(safeMax);
-    const logVal = logMin + t * (logMax - logMin);
-    return clamp(Math.exp(logVal), minBin, safeMax - 1);
-  }
-
-  function sampleFrequency(data: Uint8Array, binPosition: number): number {
-    const clamped = clamp(binPosition, 0, data.length - 1);
-    const lo = Math.floor(clamped);
-    const hi = Math.min(lo + 1, data.length - 1);
-    const mix = clamped - lo;
-    const value = data[lo] * (1 - mix) + data[hi] * mix;
-    return value / 255;
-  }
-
-  function drawSmoothLoop(points: Array<{ x: number; y: number }>): void {
-    const n = points.length;
-    for (let i = 0; i < n; i++) {
-      const p0 = points[(i - 1 + n) % n];
-      const p1 = points[i];
-      const p2 = points[(i + 1) % n];
-      const p3 = points[(i + 2) % n];
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      if (i === 0) ctx?.moveTo(p1.x, p1.y);
-      ctx?.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-    }
-  }
-
-  function draw(timestamp: number) {
-    if (!ctx) return;
-    if (document.hidden) {
-      animId = requestAnimationFrame(draw);
-      return;
-    }
-    if (timestamp - lastFrameTime < targetFrameInterval) {
-      animId = requestAnimationFrame(draw);
-      return;
-    }
-    const frameDelta = lastFrameTime === 0 ? targetFrameInterval : timestamp - lastFrameTime;
-    const dt = clamp(frameDelta, targetFrameInterval, 80);
-    lastFrameTime = timestamp;
-    ambientTime += dt;
-
-    const data = app.getFrequencyData();
-    const s = app.store.getState();
-    const isSpeaking = s.localSpeaking;
-    const isMuted = s.localMuted;
-
-    ctx.clearRect(0, 0, displaySize, displaySize);
-
-    if (data) {
-      const usableBins = clamp(Math.floor(data.length * 0.72), 16, data.length);
-      let energyAccumulator = 0;
-      const energyEnd = Math.max(8, Math.floor(usableBins * 0.35));
-      for (let i = 1; i < energyEnd; i++) {
-        energyAccumulator += data[i];
-      }
-      const averageEnergy = (energyAccumulator / (energyEnd - 1)) / 255;
-      const energy = Math.pow(clamp(averageEnergy, 0, 1), 0.8);
-      sampleRotationPhase = (sampleRotationPhase + dt * (0.00018 + energy * 0.00085)) % 1;
-      const baseRadius = maxRadius - 34 + energy * 4;
-      const sampleOffset = sampleRotationPhase;
-
-      for (let i = 0; i < barCount; i++) {
-        const t = ((i + 0.5) / barCount + sampleOffset) % 1;
-        const centerBin = logScaleBinPosition(t, usableBins - 1);
-        const spread = usableBins * 0.016;
-
-        let value = 0;
-        let weightTotal = 0;
-        for (let k = -2; k <= 2; k++) {
-          const weight = 1 - Math.abs(k) * 0.2;
-          const sampleBin = centerBin + k * spread;
-          value += sampleFrequency(data, sampleBin) * weight;
-          weightTotal += weight;
-        }
-        value /= Math.max(1e-6, weightTotal);
-
-        const ambientMotion = (Math.sin(ambientTime * 0.0019 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 2.2;
-        const reactiveHeight = Math.pow(value, 1.18) * (maxRadius * 0.44);
-        const targetHeight = reactiveHeight + ambientMotion * (1 - Math.min(value * 1.35, 1));
-        const smoothing = targetHeight > smoothedHeights[i] ? 0.42 : 0.14;
-        smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothing;
-      }
-
-      const pts: { x: number; y: number }[] = [];
-      for (let i = 0; i < barCount; i++) {
-        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
-        const h = smoothedHeights[i];
-        const r = baseRadius + h;
-        pts.push({
-          x: centerX + Math.cos(angle) * r,
-          y: centerY + Math.sin(angle) * r,
-        });
-      }
-
-      ctx.save();
-      const fillGradient = isMuted
-        ? (mutedGradient ?? 'rgba(255, 107, 107, 0.25)')
-        : isSpeaking
-          ? (speakingGradient ?? 'rgba(168, 85, 247, 0.25)')
-          : (silentGradient ?? 'rgba(90, 90, 128, 0.18)');
-
-      ctx.beginPath();
-      drawSmoothLoop(pts);
-      ctx.closePath();
-      ctx.globalAlpha = isMuted ? 0.28 : isSpeaking ? 0.24 : 0.15;
-      ctx.fillStyle = fillGradient;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      if (isMuted) {
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
-        ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
-      } else if (isSpeaking) {
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.95)';
-        ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
-      } else {
-        ctx.strokeStyle = 'rgba(90, 90, 128, 0.5)';
-        ctx.shadowColor = 'rgba(90, 90, 128, 0.2)';
-      }
-      ctx.shadowBlur = isSpeaking ? 24 : 14;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      ctx.beginPath();
-      drawSmoothLoop(pts);
-      ctx.closePath();
-      ctx.stroke();
-
-      ctx.shadowBlur = isSpeaking ? 12 : 6;
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = isMuted
-        ? 'rgba(255, 160, 160, 0.6)'
-        : isSpeaking
-          ? 'rgba(200, 160, 255, 0.7)'
-          : 'rgba(130, 130, 170, 0.35)';
-      ctx.stroke();
-
-      ctx.restore();
-    }
-
-    animId = requestAnimationFrame(draw);
-  }
-
-  if (ctx) {
-    animId = requestAnimationFrame(draw);
-  }
-
-  const connected: ConnectedElements = {
-    orbWrap, orbRing: ring, orbCanvas: canvas, orbLabel, participants, controls,
-    canvasCtx: ctx, animId, chatBar, chatDropdown, chatMessages, chatInput, lastMessageCount: 0,
-  };
-
-  orbWrap.onpointerdown = (e) => {
-    if (app.store.getState().pttEnabled) {
-      e.preventDefault();
-      app.setPttActive(true);
-    }
-  };
-  orbWrap.onpointerup = () => {
-    if (app.store.getState().pttEnabled) {
-      app.setPttActive(false);
-    }
-  };
-  orbWrap.onpointerleave = () => {
-    if (app.store.getState().pttEnabled) {
-      app.setPttActive(false);
-    }
-  };
-  orbWrap.onclick = () => {
-    if (!app.store.getState().pttEnabled) {
-      app.setMute(!app.store.getState().localMuted);
-    }
-  };
-  els.connectedScreen = connected;
-
-  function isInputFocused(): boolean {
-    const el = document.activeElement;
-    if (!el) return false;
-    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el as HTMLElement).isContentEditable;
-  }
-
-  function onKeyDown(e: KeyboardEvent) {
-    if (isInputFocused()) return;
-    const state = app.store.getState();
-    switch (e.key.toLowerCase()) {
-      case 'p': {
-        if (!app.isPKeyPttActive()) {
-          app.setPttActiveFromKey(true);
-        }
-        break;
-      }
-      case 'm': {
-        app.setMute(!state.localMuted);
-        break;
-      }
-      case 'd': {
-        app.setDeafen(!state.deafened);
-        break;
-      }
-      case 'escape': {
-        const focused = document.activeElement as HTMLElement | null;
-        if (focused && focused.blur) focused.blur();
-        break;
-      }
-    }
-  }
-
-  function onKeyUp(e: KeyboardEvent) {
-    if (e.key.toLowerCase() === 'p' && app.isPKeyPttActive()) {
-      app.setPttActiveFromKey(false);
-    }
-  }
-
-  document.addEventListener('keydown', onKeyDown);
-  document.addEventListener('keyup', onKeyUp);
-  window.addEventListener('resize', syncVisualizerSize);
-
-  (connected as any)._cleanupKeyboard = () => {
-    document.removeEventListener('keydown', onKeyDown);
-    document.removeEventListener('keyup', onKeyUp);
-  };
-
-  (connected as any)._cleanupChat = () => {
-    document.removeEventListener('click', onDocumentClick);
-  };
-
-  (connected as any)._cleanupResize = () => {
-    window.removeEventListener('resize', syncVisualizerSize);
-  };
-}
-
-function updateConnected(els: ConnectedElements, state: AppState, app: VoiceApp): void {
-  els.orbWrap.className = 'orb-container' + (state.localSpeaking ? '' : ' idle');
-  els.orbWrap.querySelectorAll('.orb-ring').forEach((ring) => {
-    let modifier = '';
-    if (state.localMuted) {
-      modifier = ' muted';
-    } else if (state.pttActive) {
-      modifier = ' ptt-active';
-    } else if (state.localSpeaking) {
-      modifier = ' active';
-    }
-    ring.className = 'orb-ring' + modifier;
-  });
-
-  let label = '';
-  if (state.pttEnabled) {
-    label = state.localMuted ? 'Muted' : state.pttActive ? 'Talking...' : 'Hold to talk';
-  } else {
-    label = state.localMuted ? 'Muted — Click to unmute' : 'Click to mute';
-  }
-  els.orbLabel.textContent = label;
-
-  renderParticipants(els.participants, state.peers, app, state.roomId ?? '');
-  renderControls(els.controls, app, state);
-
-  if (state.messages.length !== els.lastMessageCount) {
-    els.lastMessageCount = state.messages.length;
-    renderChatMessages(els.chatMessages, state.messages, state.peers, state.displayName);
-    // Update preview bar with latest message
-    const latest = state.messages[state.messages.length - 1];
-    const previewEl = els.chatBar.querySelector('.chat-bar-preview') as HTMLElement;
-    if (previewEl && latest) {
-      if (latest.type === 'chat') {
-        const peer = state.peers.find((p) => p.id === latest.peer_id);
-        const name = latest.peer_id === 'self' ? state.displayName : (peer?.display_name ?? 'Unknown');
-        previewEl.textContent = `${name}: ${latest.text}`;
-        previewEl.classList.remove('empty');
-      } else {
-        previewEl.textContent = getSystemMessageText(latest, state.peers, state.displayName);
-        previewEl.classList.remove('empty');
-      }
-    }
-    // Trigger new-message glow if dropdown is closed
-    if (els.chatDropdown.style.display === 'none' && latest && latest.type === 'chat') {
-      els.chatBar.classList.add('new-message');
-      setTimeout(() => els.chatBar.classList.remove('new-message'), 1500);
-    }
-    // Auto-scroll only if at bottom
-    const isAtBottom = els.chatMessages.scrollHeight - els.chatMessages.scrollTop <= els.chatMessages.clientHeight + 10;
-    if (isAtBottom) {
-      els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
-    }
-  }
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function formatTime(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function getSystemMessageText(msg: SystemMessageEntry, peers: PeerInfo[], ownDisplayName: string): string {
-  const peer = peers.find((p) => p.id === msg.peer_id);
-  const name = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
-  switch (msg.event) {
-    case 'peer_joined': return `${name} joined the room`;
-    case 'peer_left': return `${name} left the room`;
-    case 'peer_mute': return `${name} muted themselves`;
-    case 'peer_force_muted': return `${name} was force-muted`;
-    case 'ownership_changed': return `${name} is now the room owner`;
-    case 'kicked': return `${name} was kicked`;
-    default: return 'Unknown event';
-  }
-}
-
-function renderChatMessages(
-  container: HTMLElement,
-  messages: MessageEntry[],
-  peers: PeerInfo[],
-  ownDisplayName: string
-): void {
-  container.innerHTML = '';
-  for (const msg of messages) {
-    if (msg.type === 'system') {
-      const row = document.createElement('div');
-      row.className = 'chat-system-message';
-      row.textContent = getSystemMessageText(msg, peers, ownDisplayName);
-      container.appendChild(row);
-    } else {
-      const peer = peers.find((p) => p.id === msg.peer_id);
-      const displayName = msg.peer_id === 'self' ? ownDisplayName : (peer?.display_name ?? 'Unknown');
-
-      const row = document.createElement('div');
-      row.className = 'chat-message';
-
-      const header = document.createElement('div');
-      header.className = 'chat-message-header';
-
-      const name = document.createElement('span');
-      name.className = 'chat-message-name';
-      name.textContent = displayName;
-
-      const time = document.createElement('span');
-      time.className = 'chat-message-time';
-      time.textContent = formatTime(msg.timestamp);
-
-      header.append(name, time);
-
-      const body = document.createElement('div');
-      body.className = 'chat-message-body';
-      body.textContent = msg.text;
-
-      row.append(header, body);
-      container.appendChild(row);
-    }
-  }
 }

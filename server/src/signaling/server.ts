@@ -1,7 +1,7 @@
 import http from 'http';
 import crypto from 'crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { validateClientMessage, encodeServerMessage } from './protocol.js';
+import { validateClientMessage, encodeServerMessage, PROTOCOL_VERSION } from './protocol.js';
 import type { Router } from 'mediasoup/types';
 import { joinRoom, leaveRoom, setMute, transferOwnership, kickPeer, forceMutePeer } from '../room/manager.js';
 import { roomState } from '../room/state.js';
@@ -15,6 +15,7 @@ interface ClientContext {
   peerId: string;
   roomId: string | null;
   ws: WebSocket;
+  ip: string;
 }
 
 const clients = new Map<WebSocket, ClientContext>();
@@ -29,6 +30,10 @@ const rateLimits = new Map<string, RateLimitEntry>();
 const RATE_LIMIT_MAX = 30;
 const RATE_LIMIT_WINDOW_MS = 10000;
 
+const ipRateLimits = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_MAX_IP = 60;
+const RATE_LIMIT_WINDOW_MS_IP = 60000;
+
 const chatRateLimits = new Map<string, RateLimitEntry>();
 const CHAT_RATE_LIMIT_MAX = 5;
 const CHAT_RATE_LIMIT_WINDOW_MS = 10000;
@@ -36,12 +41,30 @@ const CHAT_RATE_LIMIT_WINDOW_MS = 10000;
 export function createSignalingServer(options: { port?: number; server?: http.Server }): WebSocketServer {
   const wss = new WebSocketServer({ ...options, maxPayload: 65536 });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     const peerId = generatePeerId();
-    clients.set(ws, { peerId, roomId: null, ws });
+    const ip = req.socket.remoteAddress || 'unknown';
+    clients.set(ws, { peerId, roomId: null, ws, ip });
+
+    // Send protocol version handshake immediately
+    send(ws, { type: 'welcome', version: PROTOCOL_VERSION });
 
     ws.on('message', (raw) => {
       const now = Date.now();
+      const ctx = clients.get(ws);
+      const clientIp = ctx?.ip || 'unknown';
+      const ipLimit = ipRateLimits.get(clientIp);
+      if (ipLimit && now < ipLimit.resetTime) {
+        ipLimit.count += 1;
+        if (ipLimit.count > RATE_LIMIT_MAX_IP) {
+          send(ws, { type: 'error', message: 'ip_rate_limited' });
+          ws.close(1008, 'ip_rate_limited');
+          return;
+        }
+      } else {
+        ipRateLimits.set(clientIp, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS_IP });
+      }
+
       const limit = rateLimits.get(peerId);
       if (limit && now < limit.resetTime) {
         limit.count += 1;
@@ -82,6 +105,7 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
       clients.delete(ws);
       rateLimits.delete(peerId);
       chatRateLimits.delete(peerId);
+      if (ctx) ipRateLimits.delete(ctx.ip);
     });
   });
 

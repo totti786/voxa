@@ -1,6 +1,6 @@
 import { Device } from 'mediasoup-client';
 import type { Transport, Producer, Consumer, DtlsParameters, RtpParameters, RtpCapabilities, IceParameters, IceCandidate, MediaKind } from 'mediasoup-client/types';
-import { SignalingClient } from './signaling/client.js';
+import { SignalingClient, PROTOCOL_VERSION } from './signaling/client.js';
 import { captureAudio, stopCapture, enumerateAudioDevices } from './audio/capture.js';
 import { createAudioGraph, closeAudioGraph, setInputGain } from './audio/processing.js';
 import { VADAnalyzer } from './audio/vad.js';
@@ -31,6 +31,8 @@ export interface AppState {
   localIsOwner: boolean;
   localForceMuted: boolean;
   password?: string;
+  audioDegraded: boolean;
+  toast: string | null;
 }
 
 export function createAppState(): Store<AppState> {
@@ -57,6 +59,8 @@ export function createAppState(): Store<AppState> {
     selfPeerId: null,
     localIsOwner: false,
     localForceMuted: false,
+    audioDegraded: false,
+    toast: null,
   });
 }
 
@@ -79,6 +83,8 @@ export class VoiceApp {
   private wakeLock: WakeLockSentinel | null = null;
   private freqData: Uint8Array<ArrayBuffer> | null = null;
   private readonly TRANSPORT_TIMEOUT_MS = 10000;
+  private readonly TRANSPORT_MAX_RETRIES = 3;
+  private transportRetryCount: Partial<Record<'send' | 'recv', number>> = {};
   private pendingProduceCallbacks: Array<(data: { id: string }) => void> = [];
   private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
   private pendingTransportConnect: Partial<Record<'send' | 'recv', { callback: () => void; errback: (error: Error) => void; timeoutId: ReturnType<typeof setTimeout> }>> = {};
@@ -136,6 +142,13 @@ export class VoiceApp {
     });
     this.signaling.onReconnecting(() => {
       this.store.setState({ reconnecting: true });
+    });
+    this.signaling.onVersionMismatch((serverVersion) => {
+      this.store.setState({
+        connecting: false,
+        connected: false,
+        joinError: `Client/server version mismatch. Please refresh the page. (Client: ${PROTOCOL_VERSION}, Server: ${serverVersion})`,
+      });
     });
   }
 
@@ -366,6 +379,7 @@ export class VoiceApp {
       console.error('[AUDIO] Failed to start audio processing graph, falling back to raw track:', err);
       closeAudioGraph(this.audioGraph);
       this.audioGraph = null;
+      this.store.setState({ audioDegraded: true, toast: 'Audio processing unavailable — using raw microphone' });
     }
 
     if (this.audioGraph) {
@@ -707,10 +721,25 @@ export class VoiceApp {
         const pending = this.pendingTransportConnect[msg.direction];
         if (pending) {
           clearTimeout(pending.timeoutId);
-          pending.errback(new Error(msg.message));
           delete this.pendingTransportConnect[msg.direction];
         }
-        console.error('Transport setup failed:', msg.direction, msg.message);
+        const retries = (this.transportRetryCount[msg.direction] || 0) + 1;
+        if (retries <= this.TRANSPORT_MAX_RETRIES) {
+          console.warn(`Transport ${msg.direction} failed, retrying (${retries}/${this.TRANSPORT_MAX_RETRIES})...`);
+          this.transportRetryCount[msg.direction] = retries;
+          // Retry after backoff
+          setTimeout(() => {
+            const transport = msg.direction === 'send' ? this.sendTransport : this.recvTransport;
+            if (transport) {
+              // Trigger reconnect
+              this.signaling.connectTransport(msg.direction, (transport as any)._data?.dtlsParameters);
+            }
+          }, Math.min(1000 * Math.pow(2, retries - 1), 8000));
+        } else {
+          console.error('Transport setup failed after max retries:', msg.direction, msg.message);
+          this.store.setState({ toast: `Connection failed — please try rejoining the room.` });
+          if (pending) pending.errback(new Error(msg.message));
+        }
         break;
       }
       case 'consumer_created': {
@@ -746,6 +775,12 @@ export class VoiceApp {
       }
       case 'error': {
         console.error('Server error:', msg.message);
+        this.store.setState({ toast: msg.message });
+        setTimeout(() => {
+          if (this.store.getState().toast === msg.message) {
+            this.store.setState({ toast: null });
+          }
+        }, 5000);
         break;
       }
     }

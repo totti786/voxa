@@ -2,6 +2,11 @@ export interface SignalingMessage {
   type: string;
 }
 
+export interface WelcomeMessage extends SignalingMessage {
+  type: 'welcome';
+  version: number;
+}
+
 export interface JoinMessage extends SignalingMessage {
   type: 'join';
   room: string;
@@ -218,6 +223,7 @@ export interface KickedMessage extends SignalingMessage {
 }
 
 export type ServerMessage =
+  | WelcomeMessage
   | JoinedMessage
   | PeerJoinedMessage
   | PeerLeftMessage
