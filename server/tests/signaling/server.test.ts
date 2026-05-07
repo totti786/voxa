@@ -23,7 +23,7 @@ describe('signaling server', () => {
     process.env.RTC_MIN_PORT = TEST_RTC_MIN_PORT;
     process.env.RTC_MAX_PORT = TEST_RTC_MAX_PORT;
     await createWorker();
-    wss = createSignalingServer({ port: PORT });
+    wss = createSignalingServer({ port: PORT, idleTimeoutMs: 2000, idleCheckIntervalMs: 500 });
   });
 
   afterAll(() => {
@@ -147,4 +147,27 @@ describe('signaling server', () => {
     ws1.close();
     ws2.close();
   }, 15000);
+
+  it('closes idle connection after timeout', async () => {
+    const ws = await connect();
+    const closed = new Promise<void>((resolve) => ws.on('close', resolve));
+
+    await new Promise((r) => setTimeout(r, 3000));
+    await closed;
+    expect(ws.readyState).toBe(WebSocket.CLOSED);
+  }, 10000);
+
+  it('keeps connection alive when client sends ping', async () => {
+    const ws = await connect();
+
+    const interval = setInterval(() => {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }, 500);
+
+    await new Promise((r) => setTimeout(r, 3000));
+    clearInterval(interval);
+
+    expect(ws.readyState).toBe(WebSocket.OPEN);
+    ws.close();
+  }, 10000);
 });

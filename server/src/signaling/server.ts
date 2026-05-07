@@ -16,6 +16,7 @@ interface ClientContext {
   roomId: string | null;
   ws: WebSocket;
   ip: string;
+  lastActivityAt: number;
 }
 
 const clients = new Map<WebSocket, ClientContext>();
@@ -38,13 +39,30 @@ const chatRateLimits = new Map<string, RateLimitEntry>();
 const CHAT_RATE_LIMIT_MAX = 5;
 const CHAT_RATE_LIMIT_WINDOW_MS = 10000;
 
-export function createSignalingServer(options: { port?: number; server?: http.Server }): WebSocketServer {
+export function createSignalingServer(options: { port?: number; server?: http.Server; idleTimeoutMs?: number; idleCheckIntervalMs?: number }): WebSocketServer {
   const wss = new WebSocketServer({ ...options, maxPayload: 65536 });
+  const idleTimeoutMs = options.idleTimeoutMs ?? 60000;
+  const idleCheckIntervalMs = options.idleCheckIntervalMs ?? 5000;
+
+  const idleCheckTimer = setInterval(() => {
+    const now = Date.now();
+    for (const ctx of clients.values()) {
+      if (now - ctx.lastActivityAt > idleTimeoutMs) {
+        console.warn(`[WS] Idle timeout for peer ${ctx.peerId}`);
+        ctx.ws.close(1001, 'idle_timeout');
+      }
+    }
+  }, idleCheckIntervalMs);
+
+  wss.on('close', () => {
+    clearInterval(idleCheckTimer);
+  });
 
   wss.on('connection', (ws, req) => {
     const peerId = generatePeerId();
     const ip = req.socket.remoteAddress || 'unknown';
-    clients.set(ws, { peerId, roomId: null, ws, ip });
+    const now = Date.now();
+    clients.set(ws, { peerId, roomId: null, ws, ip, lastActivityAt: now });
 
     // Send protocol version handshake immediately
     send(ws, { type: 'welcome', version: PROTOCOL_VERSION });
@@ -52,7 +70,10 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
     ws.on('message', (raw) => {
       const now = Date.now();
       const ctx = clients.get(ws);
-      const clientIp = ctx?.ip || 'unknown';
+      if (!ctx) return;
+      ctx.lastActivityAt = now;
+
+      const clientIp = ctx.ip;
       const ipLimit = ipRateLimits.get(clientIp);
       if (ipLimit && now < ipLimit.resetTime) {
         ipLimit.count += 1;
@@ -82,6 +103,11 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
         data = JSON.parse(raw.toString());
       } catch {
         send(ws, { type: 'error', message: 'invalid_json' });
+        return;
+      }
+
+      // Handle keepalive ping without further processing
+      if (data && typeof data === 'object' && (data as Record<string, unknown>).type === 'ping') {
         return;
       }
 

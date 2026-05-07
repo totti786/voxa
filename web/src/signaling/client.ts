@@ -13,6 +13,9 @@ interface QueuedMessage {
   resolve: () => void;
 }
 
+const PING_INTERVAL_MS = 15000;
+const PONG_TIMEOUT_MS = 30000;
+
 export class SignalingClient {
   private ws: WebSocket | null = null;
   private url: string;
@@ -28,6 +31,8 @@ export class SignalingClient {
   private processingQueue = false;
   private sendQueue: ClientMessage[] = [];
   private firstMessage = true;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private pongTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(url: string) {
     this.url = url;
@@ -44,11 +49,13 @@ export class SignalingClient {
       if (this.ws !== socket) return;
       this.reconnectDelay = 1000;
       this.flushSendQueue();
+      this.startKeepAlive(socket);
       this.connectHandlers.forEach((h) => h());
     };
 
     socket.onmessage = (event) => {
       if (this.ws !== socket) return;
+      this.resetPongTimeout(socket);
       let data: string;
       if (typeof event.data === 'string') {
         data = event.data;
@@ -69,6 +76,7 @@ export class SignalingClient {
 
     socket.onclose = () => {
       if (this.ws !== socket) return;
+      this.stopKeepAlive();
       this.disconnectHandlers.forEach((h) => h());
       if (this.shouldReconnect) {
         this.reconnectingHandlers.forEach((h) => h());
@@ -136,6 +144,7 @@ export class SignalingClient {
 
   disconnect(): void {
     this.shouldReconnect = false;
+    this.stopKeepAlive();
     this.flushSendQueue();
     this.ws?.close();
     this.ws = null;
@@ -143,6 +152,7 @@ export class SignalingClient {
 
   flushAndDisconnect(): void {
     this.shouldReconnect = false;
+    this.stopKeepAlive();
     this.flushSendQueue();
     const ws = this.ws;
     setTimeout(() => {
@@ -151,6 +161,44 @@ export class SignalingClient {
         this.ws = null;
       }
     }, 100);
+  }
+
+  private startKeepAlive(socket: WebSocket): void {
+    this.pingTimer = setInterval(() => {
+      if (this.ws === socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, PING_INTERVAL_MS);
+
+    this.pongTimer = setTimeout(() => {
+      if (this.ws === socket) {
+        console.warn('[WS] Pong timeout — closing socket to trigger reconnect');
+        socket.close();
+      }
+    }, PONG_TIMEOUT_MS);
+  }
+
+  private resetPongTimeout(socket: WebSocket): void {
+    if (this.pongTimer) {
+      clearTimeout(this.pongTimer);
+    }
+    this.pongTimer = setTimeout(() => {
+      if (this.ws === socket) {
+        console.warn('[WS] Pong timeout — closing socket to trigger reconnect');
+        socket.close();
+      }
+    }, PONG_TIMEOUT_MS);
+  }
+
+  private stopKeepAlive(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    if (this.pongTimer) {
+      clearTimeout(this.pongTimer);
+      this.pongTimer = null;
+    }
   }
 
   send(msg: ClientMessage): void {
