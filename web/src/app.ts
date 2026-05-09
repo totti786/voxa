@@ -6,6 +6,7 @@ import { createAudioGraph, closeAudioGraph, setInputGain, setupMediaSession, tea
 import { VADAnalyzer } from './audio/vad.js';
 import { Store } from './state/store.js';
 import { startKeepAlive, stopKeepAlive } from './native/keepalive.js';
+import { SERVER_BASE } from './config.js';
 import type { PeerInfo, ServerMessage, RoomSummary, ChatMessage, MessageEntry } from './types.js';
 
 export interface AppState {
@@ -105,7 +106,7 @@ export class VoiceApp {
   async fetchRooms(): Promise<void> {
     this.store.setState({ roomsLoading: true });
     try {
-      const res = await fetch('/api/rooms');
+      const res = await fetch(`${SERVER_BASE}/api/rooms`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rooms: RoomSummary[] = await res.json();
       this.store.setState({ rooms, roomsLoading: false });

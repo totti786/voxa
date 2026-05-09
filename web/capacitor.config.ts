@@ -5,8 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Voxa',
   webDir: 'dist',
   server: {
-    url: 'https://voxa.deshli.site',
-    cleartext: false,
+    androidScheme: 'https',
   },
   android: {
     webContentsDebuggingEnabled: true,

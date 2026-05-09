@@ -14,8 +14,13 @@ registerSW({
   },
 });
 
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsUrl = `${protocol}//${window.location.host}/ws`;
+import { Capacitor } from '@capacitor/core';
+import { SERVER_BASE } from './config.js';
+
+const isNative = Capacitor.isNativePlatform();
+const serverHost = isNative ? 'voxa.deshli.site' : window.location.host;
+const protocol = isNative ? 'wss:' : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
+const wsUrl = `${protocol}//${serverHost}/ws`;
 const app = new VoiceApp(wsUrl);
 
 const container = document.getElementById('app');

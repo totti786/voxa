@@ -1,6 +1,7 @@
 import { VoiceApp } from '../app.js';
 import type { AppState } from '../app.js';
 import type { PeerInfo, ChatMessage, MessageEntry, SystemMessageEntry } from '../types.js';
+import { SERVER_BASE } from '../config.js';
 import { startParticles } from './particles.js';
 import { renderConnectedScreen, updateConnected } from './connectedScreen.js';
 import type { ConnectedElements } from './connectedScreen.js';
@@ -308,7 +309,7 @@ function renderOfflineScreen(
     const password = passEl.value || undefined;
     const maxUsers = parseInt(maxEl.value, 10) || 10;
     if (!roomName) return;
-    fetch('/api/rooms', {
+    fetch(`${SERVER_BASE}/api/rooms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId: roomName, password, maxUsers }),
