@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.3",
     "jsdom": "^24.0.0",
     "typescript": "^5.4.0",
     "vite": "^5.2.0",
@@ -17,6 +18,8 @@
     "vitest": "^1.5.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.3",
+    "@capacitor/core": "^8.3.3",
     "mediasoup-client": "^3.19.0"
   }
 }

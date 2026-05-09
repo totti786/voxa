@@ -5,6 +5,7 @@ import { captureAudio, stopCapture, enumerateAudioDevices } from './audio/captur
 import { createAudioGraph, closeAudioGraph, setInputGain, setupMediaSession, teardownMediaSession } from './audio/processing.js';
 import { VADAnalyzer } from './audio/vad.js';
 import { Store } from './state/store.js';
+import { startKeepAlive, stopKeepAlive } from './native/keepalive.js';
 import type { PeerInfo, ServerMessage, RoomSummary, ChatMessage, MessageEntry } from './types.js';
 
 export interface AppState {
@@ -158,6 +159,7 @@ export class VoiceApp {
     localStorage.setItem('voxa-username', displayName);
     this.requestWakeLock();
     this.startBackgroundAudio();
+    startKeepAlive();
     this.signaling.connect();
     const TIMEOUT_MS = 10000;
     const POLL_MS = 50;
@@ -192,6 +194,7 @@ export class VoiceApp {
     this.cleanupCall();
     this.releaseWakeLock();
     this.stopBackgroundAudio();
+    stopKeepAlive();
     this.store.setState({ roomId: null, peers: [], connected: false, messages: [], selfPeerId: null, localIsOwner: false, localForceMuted: false, password: undefined });
   }
 
