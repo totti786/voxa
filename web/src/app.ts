@@ -393,7 +393,7 @@ export class VoiceApp {
     el.loop = true;
     el.volume = 0.01;
     el.setAttribute('playsinline', 'true');
-    el.play().catch(() => {});
+    el.play()?.catch(() => {});
     this.bgAudio = el;
   }
 
