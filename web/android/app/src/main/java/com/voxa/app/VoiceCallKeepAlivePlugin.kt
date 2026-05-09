@@ -20,12 +20,17 @@ class VoiceCallKeepAlivePlugin : Plugin() {
 
     @PluginMethod
     fun start(call: PluginCall) {
-        (activity as? MainActivity)?.setKeepAlive(true)
+        activity.runOnUiThread {
+            (activity as? MainActivity)?.setKeepAlive(true)
+        }
 
-        // On Android 13+, only start the service if notification permission is granted
+        // Need both RECORD_AUDIO and POST_NOTIFICATIONS (Android 13+) before starting FGS
+        if (activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            call.resolve()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                // Service can't show notification — skip it but still keep WebView alive
                 call.resolve()
                 return
             }
@@ -46,7 +51,9 @@ class VoiceCallKeepAlivePlugin : Plugin() {
 
     @PluginMethod
     fun stop(call: PluginCall) {
-        (activity as? MainActivity)?.setKeepAlive(false)
+        activity.runOnUiThread {
+            (activity as? MainActivity)?.setKeepAlive(false)
+        }
         try {
             val intent = Intent(context, VoiceCallService::class.java)
             context.stopService(intent)
