@@ -24,14 +24,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies (root)
+      - name: Install dependencies
         run: npm ci
-
-      - name: Install dependencies (web)
-        run: npm ci --prefix web
-
-      - name: Install dependencies (server)
-        run: npm ci --prefix server
 
       - name: Run typecheck (web)
         run: npm run typecheck --prefix web
