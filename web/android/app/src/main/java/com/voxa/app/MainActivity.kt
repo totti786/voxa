@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
+import android.webkit.WebView
 import com.getcapacitor.BridgeActivity
 
 class MainActivity : BridgeActivity() {
@@ -13,6 +15,14 @@ class MainActivity : BridgeActivity() {
         registerPlugin(VoiceCallKeepAlivePlugin::class.java)
         super.onCreate(savedInstanceState)
         bridge?.webView?.settings?.mediaPlaybackRequiresUserGesture = false
+
+        // Set renderer priority so Android doesn't throttle the WebView in background
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            bridge?.webView?.setRendererPriorityPolicy(
+                WebView.RENDERER_PRIORITY_IMPORTANT, false
+            )
+        }
+
         requestAppPermissions()
     }
 
@@ -33,20 +43,24 @@ class MainActivity : BridgeActivity() {
 
     fun setKeepAlive(active: Boolean) {
         keepAliveActive = active
-    }
-
-    override fun onPause() {
-        if (keepAliveActive) {
-            // Skip bridge.onPause() to keep WebRTC alive in background
+        if (active) {
+            // Keep screen-on flag prevents deep sleep from killing audio
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
-            super.onPause()
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
+    override fun onPause() {
+        if (!keepAliveActive) {
+            super.onPause()
+        }
+        // When keepAlive is active, skip super.onPause() entirely
+        // The foreground service keeps the process alive
+    }
+
     override fun onStop() {
-        if (keepAliveActive) {
-            // Skip bridge.onStop() to keep WebView running
-        } else {
+        if (!keepAliveActive) {
             super.onStop()
         }
     }
