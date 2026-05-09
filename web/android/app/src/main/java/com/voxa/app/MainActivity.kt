@@ -16,7 +16,6 @@ class MainActivity : BridgeActivity() {
         super.onCreate(savedInstanceState)
         bridge?.webView?.settings?.mediaPlaybackRequiresUserGesture = false
 
-        // Set renderer priority so Android doesn't throttle the WebView in background
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             bridge?.webView?.setRendererPriorityPolicy(
                 WebView.RENDERER_PRIORITY_IMPORTANT, false
@@ -44,7 +43,6 @@ class MainActivity : BridgeActivity() {
     fun setKeepAlive(active: Boolean) {
         keepAliveActive = active
         if (active) {
-            // Keep screen-on flag prevents deep sleep from killing audio
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -52,16 +50,16 @@ class MainActivity : BridgeActivity() {
     }
 
     override fun onPause() {
-        if (!keepAliveActive) {
-            super.onPause()
+        super.onPause()
+        if (keepAliveActive) {
+            bridge?.webView?.onResume()
         }
-        // When keepAlive is active, skip super.onPause() entirely
-        // The foreground service keeps the process alive
     }
 
     override fun onStop() {
-        if (!keepAliveActive) {
-            super.onStop()
+        super.onStop()
+        if (keepAliveActive) {
+            bridge?.webView?.onResume()
         }
     }
 }
