@@ -298,33 +298,37 @@ export function renderConnectedScreen(
         energyAccumulator += data[i];
       }
       const averageEnergy = (energyAccumulator / (energyEnd - 1)) / 255;
-      const energy = Math.pow(clamp(averageEnergy, 0, 1), 0.8);
+      const energy = Math.pow(clamp(averageEnergy, 0, 1), 0.65);
       sampleRotationPhase =
-        (sampleRotationPhase + dt * (0.00018 + energy * 0.00085)) % 1;
-      const baseRadius = maxRadius - 34 + energy * 4;
+        (sampleRotationPhase + dt * (0.00025 + energy * 0.0015)) % 1;
+      const baseRadius = maxRadius - 40 + energy * 8;
       const sampleOffset = sampleRotationPhase;
 
       for (let i = 0; i < barCount; i++) {
         const t = ((i + 0.5) / barCount + sampleOffset) % 1;
         const centerBin = logScaleBinPosition(t, usableBins - 1);
-        const spread = usableBins * 0.016;
+        const spread = usableBins * 0.02;
 
         let value = 0;
         let weightTotal = 0;
         for (let k = -2; k <= 2; k++) {
-          const weight = 1 - Math.abs(k) * 0.2;
+          const weight = 1 - Math.abs(k) * 0.25;
           const sampleBin = centerBin + k * spread;
           value += sampleFrequency(data, sampleBin) * weight;
           weightTotal += weight;
         }
         value /= Math.max(1e-6, weightTotal);
 
+        // Sharper response curve — quiet stays low, loud spikes hard
+        const shaped = Math.pow(value, 0.85) * (1 + energy * 0.6);
         const ambientMotion =
-          (Math.sin(ambientTime * 0.0019 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 2.2;
-        const reactiveHeight = Math.pow(value, 1.18) * (maxRadius * 0.44);
+          (Math.sin(ambientTime * 0.0015 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 3.5 +
+          (Math.sin(ambientTime * 0.0008 + bandPhaseOffsets[i] * 2.3) * 0.5 + 0.5) * 1.5;
+        const reactiveHeight = shaped * (maxRadius * 0.52);
         const targetHeight =
-          reactiveHeight + ambientMotion * (1 - Math.min(value * 1.35, 1));
-        const smoothing = targetHeight > smoothedHeights[i] ? 0.42 : 0.14;
+          reactiveHeight + ambientMotion * (1 - Math.min(value * 1.8, 1));
+        // Faster attack, slower decay for punchier response
+        const smoothing = targetHeight > smoothedHeights[i] ? 0.55 : 0.1;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothing;
       }
 
@@ -340,32 +344,35 @@ export function renderConnectedScreen(
       }
 
       ctx.save();
-      const fillGradient = isMuted
-        ? mutedGradient ?? 'rgba(255, 107, 107, 0.25)'
+
+      // Inner glow layer
+      const glowGradient = isMuted
+        ? mutedGradient ?? 'rgba(255, 107, 107, 0.15)'
         : isSpeaking
-          ? speakingGradient ?? 'rgba(168, 85, 247, 0.25)'
-          : silentGradient ?? 'rgba(90, 90, 128, 0.18)';
+          ? speakingGradient ?? 'rgba(168, 85, 247, 0.15)'
+          : silentGradient ?? 'rgba(90, 90, 128, 0.08)';
 
       ctx.beginPath();
       drawSmoothLoop(pts);
       ctx.closePath();
-      ctx.globalAlpha = isMuted ? 0.28 : isSpeaking ? 0.24 : 0.15;
-      ctx.fillStyle = fillGradient;
+      ctx.globalAlpha = isMuted ? 0.35 : isSpeaking ? 0.3 : 0.12;
+      ctx.fillStyle = glowGradient;
       ctx.fill();
-      ctx.globalAlpha = 1;
 
+      // Outer stroke with glow
+      ctx.globalAlpha = 1;
       if (isMuted) {
         ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
-        ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
       } else if (isSpeaking) {
         ctx.strokeStyle = 'rgba(168, 85, 247, 0.95)';
-        ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
+        ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
       } else {
-        ctx.strokeStyle = 'rgba(90, 90, 128, 0.5)';
-        ctx.shadowColor = 'rgba(90, 90, 128, 0.2)';
+        ctx.strokeStyle = 'rgba(100, 100, 140, 0.45)';
+        ctx.shadowColor = 'rgba(100, 100, 140, 0.2)';
       }
-      ctx.shadowBlur = isSpeaking ? 24 : 14;
-      ctx.lineWidth = 4;
+      ctx.shadowBlur = isSpeaking ? 28 : isMuted ? 20 : 10;
+      ctx.lineWidth = isSpeaking ? 3 : 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
@@ -374,13 +381,15 @@ export function renderConnectedScreen(
       ctx.closePath();
       ctx.stroke();
 
-      ctx.shadowBlur = isSpeaking ? 12 : 6;
-      ctx.lineWidth = 2;
+      // Inner highlight stroke
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = isSpeaking ? 0.6 : 0.3;
       ctx.strokeStyle = isMuted
-        ? 'rgba(255, 160, 160, 0.6)'
+        ? 'rgba(255, 180, 180, 0.5)'
         : isSpeaking
-          ? 'rgba(200, 160, 255, 0.7)'
-          : 'rgba(130, 130, 170, 0.35)';
+          ? 'rgba(220, 180, 255, 0.6)'
+          : 'rgba(140, 140, 180, 0.25)';
       ctx.stroke();
 
       ctx.restore();
