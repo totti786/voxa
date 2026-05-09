@@ -2,6 +2,7 @@
   "name": "Voxa",
   "short_name": "Voxa",
   "description": "Web-first, self-hosted, low-latency voice communication",
+  "version": "0.1.0",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0c0c",
@@ -10,13 +11,13 @@
   "icons": [
     {
       "src": "/icon.png",
-      "sizes": "1024x1024",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo.png",
-      "sizes": "1254x1254",
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     }
