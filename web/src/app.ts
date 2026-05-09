@@ -89,6 +89,7 @@ export class VoiceApp {
   private pendingConsumers: Array<{ consumerId: string; producerId: string; peerId: string; kind: string; rtpParameters: unknown }> = [];
   private pendingTransportConnect: Partial<Record<'send' | 'recv', { callback: () => void; errback: (error: Error) => void; timeoutId: ReturnType<typeof setTimeout> }>> = {};
   private pKeyPttActive = false;
+  private bgAudio: HTMLAudioElement | null = null;
 
   constructor(signalingUrl: string) {
     this.store = createAppState();
@@ -156,6 +157,7 @@ export class VoiceApp {
     this.store.setState({ connecting: true, roomId, displayName, joinError: null, password });
     localStorage.setItem('voxa-username', displayName);
     this.requestWakeLock();
+    this.startBackgroundAudio();
     this.signaling.connect();
     const TIMEOUT_MS = 10000;
     const POLL_MS = 50;
@@ -189,6 +191,7 @@ export class VoiceApp {
     this.signaling.flushAndDisconnect();
     this.cleanupCall();
     this.releaseWakeLock();
+    this.stopBackgroundAudio();
     this.store.setState({ roomId: null, peers: [], connected: false, messages: [], selfPeerId: null, localIsOwner: false, localForceMuted: false, password: undefined });
   }
 
@@ -330,6 +333,15 @@ export class VoiceApp {
       }
     }
 
+    // Check if the mic track was killed while backgrounded (onended may not fire on all devices)
+    if (this.localAudioSetup && this.localStream) {
+      const track = this.localStream.getAudioTracks()[0];
+      if (!track || track.readyState === 'ended') {
+        console.warn('[AUDIO] Mic track dead on resume — flagging for re-capture');
+        this.localAudioSetup = false;
+      }
+    }
+
     // If the mic track was killed while backgrounded, re-capture it
     if (!this.localAudioSetup && this.store.getState().connected) {
       console.log('[AUDIO] Re-initializing microphone after background kill');
@@ -368,6 +380,25 @@ export class VoiceApp {
       } catch (err) {
         console.error('[WAKE LOCK] Failed to acquire wake lock:', err);
       }
+    }
+  }
+
+  private startBackgroundAudio(): void {
+    if (this.bgAudio) return;
+    const el = document.createElement('audio');
+    el.src = '/silence.wav';
+    el.loop = true;
+    el.volume = 0.01;
+    el.setAttribute('playsinline', 'true');
+    el.play().catch(() => {});
+    this.bgAudio = el;
+  }
+
+  private stopBackgroundAudio(): void {
+    if (this.bgAudio) {
+      this.bgAudio.pause();
+      this.bgAudio.src = '';
+      this.bgAudio = null;
     }
   }
 
