@@ -80,8 +80,7 @@ export class SignalingClient {
       this.disconnectHandlers.forEach((h) => h());
       if (this.shouldReconnect) {
         this.reconnectingHandlers.forEach((h) => h());
-        setTimeout(() => this.connect(), this.reconnectDelay);
-        this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+        this.scheduleReconnect();
       }
     };
 
@@ -161,6 +160,25 @@ export class SignalingClient {
         this.ws = null;
       }
     }, 100);
+  }
+
+  private scheduleReconnect(): void {
+    const attempt = () => {
+      setTimeout(() => this.connect(), this.reconnectDelay);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+    };
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', onVisible);
+          if (this.shouldReconnect) attempt();
+        }
+      };
+      document.addEventListener('visibilitychange', onVisible);
+    } else {
+      attempt();
+    }
   }
 
   private startKeepAlive(socket: WebSocket): void {

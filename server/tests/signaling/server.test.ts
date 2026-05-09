@@ -170,4 +170,15 @@ describe('signaling server', () => {
     expect(ws.readyState).toBe(WebSocket.OPEN);
     ws.close();
   }, 10000);
+
+  it('replies with pong when client sends ping', async () => {
+    const ws = await connect();
+    const q = createMessageQueue(ws);
+    // consume the welcome message
+    await q.next();
+    ws.send(JSON.stringify({ type: 'ping' }));
+    const msg = await q.next();
+    expect(msg.type).toBe('pong');
+    ws.close();
+  }, 5000);
 });

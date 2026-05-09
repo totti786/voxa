@@ -222,6 +222,10 @@ export interface KickedMessage extends SignalingMessage {
   reason: string;
 }
 
+export interface PongMessage extends SignalingMessage {
+  type: 'pong';
+}
+
 export type ServerMessage =
   | WelcomeMessage
   | JoinedMessage
@@ -242,4 +246,5 @@ export type ServerMessage =
   | ChatMessage
   | PeerForceMutedMessage
   | OwnershipChangedMessage
-  | KickedMessage;
+  | KickedMessage
+  | PongMessage;

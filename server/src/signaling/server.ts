@@ -106,8 +106,9 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
         return;
       }
 
-      // Handle keepalive ping without further processing
+      // Handle keepalive ping — reply with pong so client resets its timeout
       if (data && typeof data === 'object' && (data as Record<string, unknown>).type === 'ping') {
+        send(ws, { type: 'pong' });
         return;
       }
 
