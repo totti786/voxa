@@ -299,36 +299,24 @@ export function renderConnectedScreen(
       }
       const averageEnergy = (energyAccumulator / (energyEnd - 1)) / 255;
       const energy = Math.pow(clamp(averageEnergy, 0, 1), 0.65);
-      sampleRotationPhase =
-        (sampleRotationPhase + dt * (0.00025 + energy * 0.0015)) % 1;
-      const baseRadius = maxRadius - 40 + energy * 8;
-      const sampleOffset = sampleRotationPhase;
+      const baseRadius = maxRadius - 44;
 
       for (let i = 0; i < barCount; i++) {
-        const t = ((i + 0.5) / barCount + sampleOffset) % 1;
+        const t = (i + 0.5) / barCount;
         const centerBin = logScaleBinPosition(t, usableBins - 1);
-        const spread = usableBins * 0.02;
 
-        let value = 0;
-        let weightTotal = 0;
-        for (let k = -2; k <= 2; k++) {
-          const weight = 1 - Math.abs(k) * 0.25;
-          const sampleBin = centerBin + k * spread;
-          value += sampleFrequency(data, sampleBin) * weight;
-          weightTotal += weight;
-        }
-        value /= Math.max(1e-6, weightTotal);
+        // Narrow sampling — each band is more independent
+        const value = sampleFrequency(data, centerBin);
 
-        // Sharper response curve — quiet stays low, loud spikes hard
-        const shaped = Math.pow(value, 0.85) * (1 + energy * 0.6);
+        // Aggressive curve: quiet stays flat, loud spikes sharply
+        const shaped = Math.pow(value, 1.6) * (1.2 + energy * 0.8);
         const ambientMotion =
-          (Math.sin(ambientTime * 0.0015 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 3.5 +
-          (Math.sin(ambientTime * 0.0008 + bandPhaseOffsets[i] * 2.3) * 0.5 + 0.5) * 1.5;
-        const reactiveHeight = shaped * (maxRadius * 0.52);
+          (Math.sin(ambientTime * 0.001 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 2;
+        const reactiveHeight = shaped * (maxRadius * 0.55);
         const targetHeight =
-          reactiveHeight + ambientMotion * (1 - Math.min(value * 1.8, 1));
-        // Faster attack, slower decay for punchier response
-        const smoothing = targetHeight > smoothedHeights[i] ? 0.55 : 0.1;
+          reactiveHeight + ambientMotion * (1 - Math.min(value * 2.5, 1));
+        // Very fast attack, moderate decay — spikes pop then fade
+        const smoothing = targetHeight > smoothedHeights[i] ? 0.7 : 0.15;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothing;
       }
 
