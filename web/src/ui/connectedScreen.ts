@@ -306,15 +306,18 @@ export function renderConnectedScreen(
         const centerBin = logScaleBinPosition(t, usableBins - 1);
 
         // Narrow sampling — each band is more independent
-        const value = sampleFrequency(data, centerBin);
+        const raw = sampleFrequency(data, centerBin);
+
+        // Hard noise floor — anything below threshold stays at zero
+        const floored = raw < 0.15 ? 0 : (raw - 0.15) / 0.85;
 
         // Aggressive curve: quiet stays flat, loud spikes sharply
-        const shaped = Math.pow(value, 1.6) * (1.2 + energy * 0.8);
+        const shaped = Math.pow(floored, 2.0) * (1.2 + energy * 0.8);
         const ambientMotion =
-          (Math.sin(ambientTime * 0.001 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 2;
-        const reactiveHeight = shaped * (maxRadius * 0.55);
+          (Math.sin(ambientTime * 0.001 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 1.5;
+        const reactiveHeight = shaped * (maxRadius * 0.4);
         const targetHeight =
-          reactiveHeight + ambientMotion * (1 - Math.min(value * 2.5, 1));
+          reactiveHeight + ambientMotion * (1 - Math.min(floored * 3, 1));
         // Very fast attack, moderate decay — spikes pop then fade
         const smoothing = targetHeight > smoothedHeights[i] ? 0.7 : 0.15;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothing;
