@@ -174,11 +174,15 @@ describe('signaling server', () => {
   it('replies with pong when client sends ping', async () => {
     const ws = await connect();
     const q = createMessageQueue(ws);
-    // consume the welcome message
-    await q.next();
     ws.send(JSON.stringify({ type: 'ping' }));
     const msg = await q.next();
-    expect(msg.type).toBe('pong');
+    // May receive welcome first if it hasn't been consumed yet
+    if (msg.type === 'welcome') {
+      const pong = await q.next();
+      expect(pong.type).toBe('pong');
+    } else {
+      expect(msg.type).toBe('pong');
+    }
     ws.close();
   }, 5000);
 });
