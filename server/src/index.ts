@@ -40,16 +40,30 @@ async function main() {
 
     if (req.url === '/api/rooms' && req.method === 'POST') {
       let body = '';
-      req.on('data', (chunk) => { body += chunk; });
+      let tooLarge = false;
+      req.on('data', (chunk: Buffer) => {
+        body += chunk;
+        if (body.length > 4096) {
+          tooLarge = true;
+        }
+      });
       req.on('end', () => {
         try {
-          const data = JSON.parse(body);
-          const roomId = data.roomId || `room-${Date.now()}`;
-          const password = data.password || undefined;
-          const maxUsers = data.maxUsers || 10;
-          roomState.createRoom(roomId, password, maxUsers);
+          if (tooLarge) throw new Error('payload_too_large');
+          const data: unknown = JSON.parse(body);
+          if (!data || typeof data !== 'object') throw new Error('invalid_request');
+          const input = data as Record<string, unknown>;
+          const generatedRoomId = `room-${Date.now()}`;
+          const roomId = input.roomId === undefined ? generatedRoomId : input.roomId;
+          const password = input.password === undefined ? undefined : input.password;
+          const maxUsers = input.maxUsers === undefined ? 10 : input.maxUsers;
+          if (typeof roomId !== 'string' || !roomId.trim() || roomId.trim().length > 64) throw new Error('invalid_room');
+          if (password !== undefined && (typeof password !== 'string' || password.length > 128)) throw new Error('invalid_password');
+          if (typeof maxUsers !== 'number' || !Number.isInteger(maxUsers) || maxUsers < 1 || maxUsers > 10) throw new Error('invalid_max_users');
+          if (roomState.getRoom(roomId.trim())) throw new Error('room_exists');
+          roomState.createRoom(roomId.trim(), password, maxUsers);
           res.writeHead(201, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ id: roomId, maxUsers, hasPassword: !!password }));
+          res.end(JSON.stringify({ id: roomId.trim(), maxUsers, hasPassword: !!password }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'invalid_request' }));
@@ -62,7 +76,7 @@ async function main() {
     res.end(JSON.stringify({ error: 'not_found' }));
   });
 
-  const wss = createSignalingServer({ server });
+  const wss = createSignalingServer({ server, allowedOrigins: config.allowedOrigins });
 
   server.listen(config.port, () => {
     console.log(`Server listening on port ${config.port}`);

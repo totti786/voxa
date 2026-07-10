@@ -136,7 +136,7 @@ export class VoiceApp {
       if (wasConnecting) return;
       const state = this.store.getState();
       if (state.roomId && state.displayName) {
-        this.signaling.send({ type: 'join', room: state.roomId, display_name: state.displayName, password: state.password });
+        this.signaling.join(state.roomId, state.displayName, state.password);
       }
     });
     this.signaling.onDisconnect(() => {
@@ -440,6 +440,7 @@ export class VoiceApp {
       }
     } catch (err) {
       console.error('[AUDIO] Failed to get microphone:', err);
+      this.localAudioSetup = false;
       alert('Microphone access is required. Please allow microphone access and try again.');
       return;
     }

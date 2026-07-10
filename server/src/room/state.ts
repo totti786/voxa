@@ -9,6 +9,7 @@ export interface Peer {
   muted: boolean;
   forceMuted?: boolean;
   wsId: string;
+  banKey?: string;
   joinedAt: Date;
   sendTransport?: WebRtcTransport;
   recvTransport?: WebRtcTransport;
@@ -155,10 +156,7 @@ class RoomState {
     const room = this.rooms.get(roomId);
     if (!room) return false;
     const removed = room.peers.delete(peerId);
-    if (removed && room.peers.size === 0) {
-      this.rooms.delete(roomId);
-      this.markDirty();
-    }
+    if (removed) this.markDirty();
     return removed;
   }
 

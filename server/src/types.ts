@@ -12,6 +12,7 @@ export interface JoinMessage extends SignalingMessage {
   room: string;
   password?: string;
   display_name: string;
+  client_id: string;
 }
 
 export interface OfferMessage extends SignalingMessage {

@@ -22,4 +22,6 @@ services:
       - RTC_MAX_PORT=10100
       - RTC_ANNOUNCED_IP=${RTC_ANNOUNCED_IP:-}
       - LOG_LEVEL=info
+      # Set this to the public HTTPS origin in production to reject cross-site WebSocket connections.
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
     restart: unless-stopped

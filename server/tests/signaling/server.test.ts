@@ -74,7 +74,7 @@ describe('signaling server', () => {
   it('responds to join with joined event', async () => {
     const ws = await connect();
     const q = createMessageQueue(ws);
-    ws.send(JSON.stringify({ type: 'join', room: 'test-room', display_name: 'Alice' }));
+    ws.send(JSON.stringify({ type: 'join', room: 'test-room', display_name: 'Alice', client_id: 'alice-test-client-0001' }));
     let msg = await q.next();
     expect(msg.type).toBe('router_capabilities');
     msg = await q.next();
@@ -95,7 +95,7 @@ describe('signaling server', () => {
 
     const ws = await connect();
     const q = createMessageQueue(ws);
-    ws.send(JSON.stringify({ type: 'join', room: 'turn-room', display_name: 'Alice' }));
+    ws.send(JSON.stringify({ type: 'join', room: 'turn-room', display_name: 'Alice', client_id: 'alice-test-client-0002' }));
     let msg = await q.next();
     expect(msg.type).toBe('router_capabilities');
     msg = await q.next();
@@ -132,12 +132,12 @@ describe('signaling server', () => {
   it('notifies others when peer joins', async () => {
     const ws1 = await connect();
     const q1 = createMessageQueue(ws1);
-    ws1.send(JSON.stringify({ type: 'join', room: 'notify-room', display_name: 'Alice' }));
+    ws1.send(JSON.stringify({ type: 'join', room: 'notify-room', display_name: 'Alice', client_id: 'alice-test-client-0003' }));
     for (let i = 0; i < 4; i++) await q1.next();
 
     const ws2 = await connect();
     const q2 = createMessageQueue(ws2);
-    ws2.send(JSON.stringify({ type: 'join', room: 'notify-room', display_name: 'Bob' }));
+    ws2.send(JSON.stringify({ type: 'join', room: 'notify-room', display_name: 'Bob', client_id: 'bob-test-client-0001' }));
     for (let i = 0; i < 4; i++) await q2.next();
 
     const notify = await q1.next();

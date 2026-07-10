@@ -33,12 +33,16 @@ export class SignalingClient {
   private firstMessage = true;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private pongTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly clientId: string;
 
   constructor(url: string) {
     this.url = url;
+    this.clientId = getClientId();
   }
 
   connect(): void {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
     this.shouldReconnect = true;
     this.sendQueue = [];
     this.firstMessage = true;
@@ -77,6 +81,7 @@ export class SignalingClient {
     socket.onclose = () => {
       if (this.ws !== socket) return;
       this.stopKeepAlive();
+      this.ws = null;
       this.disconnectHandlers.forEach((h) => h());
       if (this.shouldReconnect) {
         this.reconnectingHandlers.forEach((h) => h());
@@ -144,6 +149,7 @@ export class SignalingClient {
   disconnect(): void {
     this.shouldReconnect = false;
     this.stopKeepAlive();
+    this.clearReconnectTimer();
     this.flushSendQueue();
     this.ws?.close();
     this.ws = null;
@@ -152,6 +158,7 @@ export class SignalingClient {
   flushAndDisconnect(): void {
     this.shouldReconnect = false;
     this.stopKeepAlive();
+    this.clearReconnectTimer();
     this.flushSendQueue();
     const ws = this.ws;
     setTimeout(() => {
@@ -163,8 +170,12 @@ export class SignalingClient {
   }
 
   private scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
     const attempt = () => {
-      setTimeout(() => this.connect(), this.reconnectDelay);
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        if (this.shouldReconnect) this.connect();
+      }, this.reconnectDelay);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
     };
 
@@ -178,6 +189,13 @@ export class SignalingClient {
       document.addEventListener('visibilitychange', onVisible);
     } else {
       attempt();
+    }
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 
@@ -249,7 +267,7 @@ export class SignalingClient {
   }
 
   join(room: string, displayName: string, password?: string): void {
-    this.send({ type: 'join', room, display_name: displayName, password });
+    this.send({ type: 'join', room, display_name: displayName, password, client_id: this.clientId });
   }
 
   leave(): void {
@@ -291,4 +309,19 @@ export class SignalingClient {
   forceMute(peerId: string, muted: boolean): void {
     this.send({ type: 'force_mute', peer_id: peerId, muted });
   }
+}
+
+function getClientId(): string {
+  const key = 'voxa-client-id';
+  let storage: Storage | undefined;
+  try {
+    storage = typeof window !== 'undefined' ? window.localStorage : undefined;
+  } catch {
+    // Private browsing and non-browser test environments may deny storage.
+  }
+  const existing = storage?.getItem(key);
+  if (existing && /^[a-zA-Z0-9_-]{16,128}$/.test(existing)) return existing;
+  const value = globalThis.crypto?.randomUUID?.().replace(/-/g, '') ?? `${Date.now()}${Math.random().toString(36).slice(2)}`;
+  storage?.setItem(key, value);
+  return value;
 }

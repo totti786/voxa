@@ -36,7 +36,7 @@ describe('SignalingClient', () => {
     const wsInstance = (global.WebSocket as unknown as ReturnType<typeof vi.fn>).mock.results[0].value;
     client.join('test-room', 'Alice');
     expect(wsInstance.send).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'join', room: 'test-room', display_name: 'Alice' })
+      expect.stringMatching(/"type":"join".*"room":"test-room".*"display_name":"Alice".*"client_id":"[a-z0-9]{32}"/)
     );
   });
 
@@ -49,7 +49,7 @@ describe('SignalingClient', () => {
     expect(onMessage).toHaveBeenCalledWith({ type: 'joined', peers: [] });
   });
 
-  it('ignores stale socket closes after a reconnect', () => {
+  it('does not open a duplicate socket while a connection is active', () => {
     const onDisconnect = vi.fn();
     client.onDisconnect(onDisconnect);
 
@@ -57,12 +57,9 @@ describe('SignalingClient', () => {
     const firstSocket = (global.WebSocket as unknown as ReturnType<typeof vi.fn>).mock.results[0].value;
 
     client.connect();
-    const secondSocket = (global.WebSocket as unknown as ReturnType<typeof vi.fn>).mock.results[1].value;
-
-    firstSocket.onclose();
+    expect(global.WebSocket).toHaveBeenCalledTimes(1);
     expect(onDisconnect).not.toHaveBeenCalled();
-
-    secondSocket.onclose();
+    firstSocket.onclose();
     expect(onDisconnect).toHaveBeenCalledTimes(1);
   });
 

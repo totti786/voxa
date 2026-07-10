@@ -39,7 +39,13 @@ const chatRateLimits = new Map<string, RateLimitEntry>();
 const CHAT_RATE_LIMIT_MAX = 5;
 const CHAT_RATE_LIMIT_WINDOW_MS = 10000;
 
-export function createSignalingServer(options: { port?: number; server?: http.Server; idleTimeoutMs?: number; idleCheckIntervalMs?: number }): WebSocketServer {
+export function createSignalingServer(options: {
+  port?: number;
+  server?: http.Server;
+  idleTimeoutMs?: number;
+  idleCheckIntervalMs?: number;
+  allowedOrigins?: string[];
+}): WebSocketServer {
   const wss = new WebSocketServer({ ...options, maxPayload: 65536 });
   const idleTimeoutMs = options.idleTimeoutMs ?? 60000;
   const idleCheckIntervalMs = options.idleCheckIntervalMs ?? 5000;
@@ -59,6 +65,11 @@ export function createSignalingServer(options: { port?: number; server?: http.Se
   });
 
   wss.on('connection', (ws, req) => {
+    const origin = req.headers.origin;
+    if (options.allowedOrigins?.length && (!origin || !options.allowedOrigins.includes(origin))) {
+      ws.close(1008, 'origin_not_allowed');
+      return;
+    }
     const peerId = generatePeerId();
     const ip = req.socket.remoteAddress || 'unknown';
     const now = Date.now();
@@ -146,7 +157,11 @@ async function handleMessage(ws: WebSocket, msg: ReturnType<typeof validateClien
 
   switch (msg.type) {
     case 'join': {
-      const result = joinRoom(msg.room, ctx.peerId, msg.display_name, ctx.peerId, msg.password);
+      if (ctx.roomId) {
+        send(ws, { type: 'error', message: 'already_in_room' });
+        return;
+      }
+      const result = joinRoom(msg.room, ctx.peerId, msg.display_name, ctx.peerId, msg.password, msg.client_id);
       if (!result.success) {
         send(ws, { type: 'error', message: result.error || 'join_failed' });
         return;
@@ -402,18 +417,23 @@ function handlePeerLeave(roomId: string, peerId: string): void {
   }
 
   const room = roomState.getRoom(roomId);
-  if (room && room.ownerPeerId === peerId) {
-    const nextOwner = roomState.getLongestTenurePeer(roomId);
-    if (nextOwner) {
-      transferOwnership(roomId, nextOwner.id);
-      broadcast(roomId, { type: 'ownership_changed', peer_id: nextOwner.id });
-    }
-  }
+  const wasOwner = room?.ownerPeerId === peerId;
 
   const isLastPeer = room ? room.peers.size === 1 && room.peers.has(peerId) : false;
 
   leaveRoom(roomId, peerId);
   broadcast(roomId, { type: 'peer_left', peer_id: peerId });
+
+  if (wasOwner) {
+    const nextOwner = roomState.getLongestTenurePeer(roomId);
+    if (nextOwner) {
+      roomState.clearForceMutedFlags(roomId);
+      transferOwnership(roomId, nextOwner.id);
+      broadcast(roomId, { type: 'ownership_changed', peer_id: nextOwner.id });
+    } else {
+      transferOwnership(roomId, '');
+    }
+  }
 
   if (isLastPeer) {
     import('../sfu/router.js').then(({ closeRouter }) => closeRouter(roomId));

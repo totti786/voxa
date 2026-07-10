@@ -60,8 +60,8 @@ export function renderConnectedScreen(
   container: HTMLElement,
   app: VoiceApp
 ): ConnectedElements {
-  const dpr = window.devicePixelRatio || 1;
-  const barCount = 96;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const barCount = 84;
 
   const layout = document.createElement('div');
   layout.className = 'connected-layout';
@@ -210,12 +210,13 @@ export function renderConnectedScreen(
   function refreshGradients() {
     if (!ctx) return;
     speakingGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    speakingGradient.addColorStop(0, 'rgba(168, 85, 247, 0.5)');
-    speakingGradient.addColorStop(1, 'rgba(6, 182, 212, 0.95)');
+    speakingGradient.addColorStop(0, 'rgba(69, 245, 255, 0.48)');
+    speakingGradient.addColorStop(0.55, 'rgba(91, 94, 255, 0.6)');
+    speakingGradient.addColorStop(1, 'rgba(181, 95, 255, 0.96)');
 
     silentGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
-    silentGradient.addColorStop(0, 'rgba(90, 90, 128, 0.1)');
-    silentGradient.addColorStop(1, 'rgba(90, 90, 128, 0.35)');
+    silentGradient.addColorStop(0, 'rgba(69, 245, 255, 0.06)');
+    silentGradient.addColorStop(1, 'rgba(106, 110, 170, 0.3)');
 
     mutedGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, maxRadius);
     mutedGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
@@ -291,7 +292,7 @@ export function renderConnectedScreen(
     ctx.clearRect(0, 0, displaySize, displaySize);
 
     if (data) {
-      const usableBins = clamp(Math.floor(data.length * 0.72), 16, data.length);
+      const usableBins = clamp(Math.floor(data.length * 0.58), 16, data.length);
       let energyAccumulator = 0;
       const energyEnd = Math.max(8, Math.floor(usableBins * 0.35));
       for (let i = 1; i < energyEnd; i++) {
@@ -305,21 +306,22 @@ export function renderConnectedScreen(
         const t = (i + 0.5) / barCount;
         const centerBin = logScaleBinPosition(t, usableBins - 1);
 
-        // Narrow sampling — each band is more independent
-        const raw = sampleFrequency(data, centerBin);
-
-        // Hard noise floor — anything below threshold stays at zero
-        const floored = raw < 0.15 ? 0 : (raw - 0.15) / 0.85;
-
-        // Aggressive curve: quiet stays flat, loud spikes sharply
-        const shaped = Math.pow(floored, 2.0) * (1.2 + energy * 0.8);
+        // Blend neighboring bins so speech reads as a cohesive breathing form,
+        // rather than noisy single-bin spikes.
+        const raw = (
+          sampleFrequency(data, centerBin - 1.2) * 0.25 +
+          sampleFrequency(data, centerBin) * 0.5 +
+          sampleFrequency(data, centerBin + 1.2) * 0.25
+        );
+        const floored = raw < 0.09 ? 0 : (raw - 0.09) / 0.91;
+        const shaped = Math.pow(floored, 1.65) * (0.85 + energy * 1.15);
         const ambientMotion =
-          (Math.sin(ambientTime * 0.001 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 1.5;
-        const reactiveHeight = shaped * (maxRadius * 0.4);
+          (Math.sin(ambientTime * 0.0012 + bandPhaseOffsets[i]) * 0.5 + 0.5) * 1.25;
+        const reactiveHeight = shaped * (maxRadius * 0.34);
         const targetHeight =
           reactiveHeight + ambientMotion * (1 - Math.min(floored * 3, 1));
-        // Very fast attack, moderate decay — spikes pop then fade
-        const smoothing = targetHeight > smoothedHeights[i] ? 0.7 : 0.15;
+        // Fast attack with a slower release gives speech a tactile, musical feel.
+        const smoothing = targetHeight > smoothedHeights[i] ? 0.52 : 0.1;
         smoothedHeights[i] += (targetHeight - smoothedHeights[i]) * smoothing;
       }
 
@@ -356,13 +358,13 @@ export function renderConnectedScreen(
         ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
         ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
       } else if (isSpeaking) {
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.95)';
-        ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
+        ctx.strokeStyle = 'rgba(96, 238, 255, 0.98)';
+        ctx.shadowColor = 'rgba(111, 93, 255, 0.68)';
       } else {
         ctx.strokeStyle = 'rgba(100, 100, 140, 0.45)';
         ctx.shadowColor = 'rgba(100, 100, 140, 0.2)';
       }
-      ctx.shadowBlur = isSpeaking ? 28 : isMuted ? 20 : 10;
+      ctx.shadowBlur = isSpeaking ? 32 : isMuted ? 20 : 8;
       ctx.lineWidth = isSpeaking ? 3 : 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -379,8 +381,8 @@ export function renderConnectedScreen(
       ctx.strokeStyle = isMuted
         ? 'rgba(255, 180, 180, 0.5)'
         : isSpeaking
-          ? 'rgba(220, 180, 255, 0.6)'
-          : 'rgba(140, 140, 180, 0.25)';
+          ? 'rgba(220, 251, 255, 0.65)'
+          : 'rgba(155, 190, 230, 0.25)';
       ctx.stroke();
 
       ctx.restore();

@@ -19,6 +19,14 @@ export interface IceServerConfig {
 
 const DEFAULT_STUN_SERVERS: IceServerConfig[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 
+function parsePort(value: string, name: string, min = 1): number {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < min || port > 65535) {
+    throw new Error(`Invalid ${name}: ${value}`);
+  }
+  return port;
+}
+
 function normalizeTurnUrls(turnServer: string): string[] {
   const trimmed = turnServer.trim();
   if (!trimmed) return [];
@@ -38,14 +46,9 @@ function normalizeTurnUrls(turnServer: string): string[] {
 }
 
 export function loadConfig(): ServerConfig {
-  const port = parseInt(process.env.PORT || '7880', 10);
-  if (Number.isNaN(port)) throw new Error(`Invalid PORT: ${process.env.PORT}`);
-
-  const rtcMinPort = parseInt(process.env.RTC_MIN_PORT || '10000', 10);
-  if (Number.isNaN(rtcMinPort)) throw new Error(`Invalid RTC_MIN_PORT: ${process.env.RTC_MIN_PORT}`);
-
-  const rtcMaxPort = parseInt(process.env.RTC_MAX_PORT || '10100', 10);
-  if (Number.isNaN(rtcMaxPort)) throw new Error(`Invalid RTC_MAX_PORT: ${process.env.RTC_MAX_PORT}`);
+  const port = parsePort(process.env.PORT || '7880', 'PORT');
+  const rtcMinPort = parsePort(process.env.RTC_MIN_PORT || '10000', 'RTC_MIN_PORT', 1024);
+  const rtcMaxPort = parsePort(process.env.RTC_MAX_PORT || '10100', 'RTC_MAX_PORT', 1024);
 
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)

@@ -9,14 +9,16 @@ export function validateClientMessage(data: unknown): ClientMessage | null {
 
   switch (msg.type) {
     case 'join':
-      if (typeof msg.room !== 'string' || typeof msg.display_name !== 'string') return null;
+      if (typeof msg.room !== 'string' || typeof msg.display_name !== 'string' || typeof msg.client_id !== 'string') return null;
       if (!msg.room.trim() || msg.room.length > 64) return null;
       if (!msg.display_name.trim() || msg.display_name.length > 32) return null;
+      if (!/^[a-zA-Z0-9_-]{16,128}$/.test(msg.client_id)) return null;
       return {
         type: 'join',
         room: msg.room.trim(),
         password: typeof msg.password === 'string' ? msg.password : undefined,
         display_name: msg.display_name.trim(),
+        client_id: msg.client_id,
       };
     case 'offer':
       if (typeof msg.sdp !== 'string') return null;

@@ -7,6 +7,7 @@ describe('types', () => {
       type: 'join',
       room: 'test-room',
       display_name: 'Alice',
+      client_id: 'test-client-identifier',
     };
     expect(msg.type).toBe('join');
     expect(msg.room).toBe('test-room');

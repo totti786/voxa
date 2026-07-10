@@ -13,7 +13,8 @@ export function joinRoom(
   peerId: string,
   displayName: string,
   wsId: string,
-  password?: string
+  password?: string,
+  banKey = peerId
 ): JoinResult {
   let room = roomState.getRoom(roomId);
 
@@ -21,7 +22,7 @@ export function joinRoom(
     room = roomState.createRoom(roomId);
   }
 
-  if (roomState.isBanned(roomId, peerId)) {
+  if (roomState.isBanned(roomId, banKey)) {
     return { success: false, error: 'banned' };
   }
 
@@ -34,6 +35,7 @@ export function joinRoom(
     displayName,
     muted: false,
     wsId,
+    banKey,
     joinedAt: new Date(),
     consumers: new Map(),
   };
@@ -43,7 +45,7 @@ export function joinRoom(
     return { success: false, error: 'room_full' };
   }
 
-  if (room.ownerPeerId === null) {
+  if (room.ownerPeerId === null || !roomState.getPeer(roomId, room.ownerPeerId)) {
     roomState.setOwner(roomId, peerId);
   }
 
@@ -68,7 +70,9 @@ export function transferOwnership(roomId: string, peerId: string): boolean {
 }
 
 export function kickPeer(roomId: string, peerId: string): boolean {
-  roomState.banPeer(roomId, peerId, 5 * 60 * 1000);
+  const peer = roomState.getPeer(roomId, peerId);
+  if (!peer) return false;
+  roomState.banPeer(roomId, peer.banKey ?? peer.id, 5 * 60 * 1000);
   return true;
 }
 

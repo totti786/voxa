@@ -25,12 +25,12 @@ describe('room state', () => {
     expect(roomState.getPeers('room-1')).toHaveLength(0);
   });
 
-  it('deletes room when last peer leaves', () => {
+  it('keeps an empty room so its password and temporary bans survive reconnects', () => {
     roomState.createRoom('empty-room');
     const peer = { id: 'p1', displayName: 'Bob', muted: false, wsId: 'ws1' };
     roomState.addPeer('empty-room', peer);
     roomState.removePeer('empty-room', 'p1');
-    expect(roomState.getRoom('empty-room')).toBeUndefined();
+    expect(roomState.getRoom('empty-room')?.peers).toHaveLength(0);
   });
 
   it('respects max users limit', () => {
